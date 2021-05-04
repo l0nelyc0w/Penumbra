@@ -40,6 +40,7 @@ import bisq.core.trade.protocol.tasks.maker.MakerRemovesOpenOffer;
 import bisq.core.trade.protocol.tasks.maker.MakerSendsInitTradeRequest;
 import bisq.core.trade.protocol.tasks.maker.MakerSendsReadyToFundMultisigResponse;
 import bisq.core.trade.protocol.tasks.maker.MakerSetupDepositTxsListener;
+import bisq.core.trade.protocol.tasks.maker.MakerVerifyTakerDepositTx;
 import bisq.core.trade.protocol.tasks.maker.MakerVerifyTakerFeePayment;
 import bisq.core.util.Validator;
 
@@ -195,6 +196,7 @@ public class BuyerAsMakerProtocol extends BuyerProtocol implements MakerProtocol
             .with(message)
             .from(sender))
             .setup(tasks(
+                    MakerVerifyTakerDepositTx.class,
                     MakerCreateAndSignContract.class,
                     MakerCreateAndPublishDepositTx.class,
                     MakerSetupDepositTxsListener.class).

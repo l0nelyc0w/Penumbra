@@ -79,7 +79,7 @@ public class MakerCreateAndPublishDepositTx extends TradeTask {
               // verify taker's deposit tx
               // TODO (woodser): taker needs to prove tx to address, cannot claim tx id, verify tx id seen in pool
               // TODO (woodser): need to wait for tx to be seen by multisig wallet, might not be in wallet at first
-              if (message.getDepositTxId() == null) throw new RuntimeException("Taker must prove deposit tx before maker deposits");
+              if (message.getDepositTxId() == null) throw new RuntimeException("Taker must provide deposit tx id");
               processModel.setTakerPreparedDepositTxId(message.getDepositTxId());
 
               // collect parameters for transfer to multisig

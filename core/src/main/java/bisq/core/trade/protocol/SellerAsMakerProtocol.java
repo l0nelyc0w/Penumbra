@@ -35,6 +35,7 @@ import bisq.core.trade.protocol.tasks.maker.MakerRemovesOpenOffer;
 import bisq.core.trade.protocol.tasks.maker.MakerSendsInitTradeRequest;
 import bisq.core.trade.protocol.tasks.maker.MakerSendsReadyToFundMultisigResponse;
 import bisq.core.trade.protocol.tasks.maker.MakerSetupDepositTxsListener;
+import bisq.core.trade.protocol.tasks.maker.MakerVerifyTakerDepositTx;
 import bisq.core.trade.protocol.tasks.maker.MakerVerifyTakerFeePayment;
 import bisq.core.trade.protocol.tasks.seller.SellerCreatesDelayedPayoutTx;
 import bisq.core.trade.protocol.tasks.seller.SellerSendDelayedPayoutTxSignatureRequest;
@@ -196,6 +197,7 @@ public class SellerAsMakerProtocol extends SellerProtocol implements MakerProtoc
             .with(message)
             .from(sender))
             .setup(tasks(
+                    MakerVerifyTakerDepositTx.class,
                     MakerCreateAndSignContract.class,
                     MakerCreateAndPublishDepositTx.class,
                     MakerSetupDepositTxsListener.class).
