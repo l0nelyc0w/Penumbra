@@ -120,13 +120,13 @@ public class EncryptionServiceTests {
         public final int nonce;
 
         public MockMessage(int nonce) {
-            super(0);
+            super("0");
             this.nonce = nonce;
         }
 
         @Override
-        public int getMessageVersion() {
-            return 0;
+        public String getMessageVersion() {
+            return "0";
         }
 
         @Override
@@ -138,7 +138,7 @@ public class EncryptionServiceTests {
 /*@Value
 final class TestMessage implements MailboxMessage {
     public String data = "test";
-    private final int messageVersion = Version.getP2PMessageVersion();
+    private final String messageVersion = Version.getP2PMessageVersion();
     private final String uid;
     private final String senderNodeAddress;
 
