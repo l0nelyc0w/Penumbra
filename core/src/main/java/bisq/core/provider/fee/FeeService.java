@@ -66,7 +66,7 @@ public class FeeService {
 
 
     public static Coin getMakerFeePerBtc() {
-         return ParsingUtils.parseToCoin("0.001", btcCoinFormat);
+         return ParsingUtils.parseToCoin("0.01", btcCoinFormat); //lolol
     }
 
     public static Coin getMinMakerFee() {
