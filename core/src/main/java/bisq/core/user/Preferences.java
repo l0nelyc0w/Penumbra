@@ -285,7 +285,7 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         // set all properties
         useAnimationsProperty.set(prefPayload.isUseAnimations());
         useStandbyModeProperty.set(prefPayload.isUseStandbyMode());
-        cssThemeProperty.set(prefPayload.getCssTheme());
+        cssThemeProperty.set(1);
 
 
         // if no valid Bitcoin block explorer is set, select the 1st valid Bitcoin block explorer
@@ -363,7 +363,7 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
     }
 
     public void setCssTheme(boolean useDarkMode) {
-        this.cssThemeProperty.set(useDarkMode ? 1 : 0);
+        this.cssThemeProperty.set(1);
     }
 
     public void addFiatCurrency(FiatCurrency tradeCurrency) {
@@ -687,7 +687,7 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         prefPayload.setTakeOfferSelectedPaymentAccountId(value);
         requestPersistence();
     }
-    
+
     public void setIgnoreDustThreshold(int value) {
         prefPayload.setIgnoreDustThreshold(value);
         requestPersistence();
