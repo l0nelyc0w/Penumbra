@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.btc;
@@ -107,20 +107,20 @@ public class Balances {
     private void updateAvailableBalance() {
         availableBalance.set(Coin.valueOf(xmrWalletService.getWallet().getUnlockedBalance(0).longValueExact()));
     }
-    
+
     private void updateLockedBalance() {
         BigInteger balance = xmrWalletService.getWallet().getBalance(0);
         BigInteger unlockedBalance = xmrWalletService.getWallet().getUnlockedBalance(0);
         lockedBalance.set(Coin.valueOf(balance.subtract(unlockedBalance).longValueExact()));
     }
-    
+
     private void updateReservedOfferBalance() {
         Coin sum = Coin.valueOf(0);
         List<MoneroOutputWallet> frozenOutputs = xmrWalletService.getWallet().getOutputs(new MoneroOutputQuery().setIsFrozen(true).setIsSpent(false));
         for (MoneroOutputWallet frozenOutput : frozenOutputs) sum = sum.add(Coin.valueOf(frozenOutput.getAmount().longValueExact()));
         reservedOfferBalance.set(sum);
     }
-    
+
     private void updateReservedTradeBalance() {
         Coin sum = Coin.valueOf(0);
         List<Trade> openTrades = tradeManager.getTradesStreamWithFundsLockedIn().collect(Collectors.toList());

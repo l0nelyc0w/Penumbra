@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.offer.placeoffer.tasks;
@@ -44,13 +44,13 @@ public class MakerReservesTradeFunds extends Task<PlaceOfferModel> {
 
         try {
             runInterceptHook();
-            
+
             // create transaction to reserve trade
             String returnAddress = model.getXmrWalletService().getOrCreateAddressEntry(offer.getId(), XmrAddressEntry.Context.TRADE_PAYOUT).getAddressString();
             BigInteger makerFee = ParsingUtils.coinToAtomicUnits(offer.getMakerFee());
             BigInteger depositAmount = ParsingUtils.coinToAtomicUnits(model.getReservedFundsForOffer());
             MoneroTxWallet reserveTx = TradeUtils.createReserveTx(model.getXmrWalletService(), offer.getId(), makerFee, returnAddress, depositAmount);
-            
+
             // freeze reserved outputs
             // TODO (woodser): synchronize to handle potential race condition where concurrent trades freeze each other's outputs
             List<String> reservedKeyImages = new ArrayList<String>();
@@ -59,7 +59,7 @@ public class MakerReservesTradeFunds extends Task<PlaceOfferModel> {
                 reservedKeyImages.add(input.getKeyImage().getHex());
                 wallet.freezeOutput(input.getKeyImage().getHex());
             }
-            
+
             // save offer state
             // TODO (woodser): persist
             model.setReserveTx(reserveTx);

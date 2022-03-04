@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.trade;
@@ -47,32 +47,32 @@ import monero.wallet.model.MoneroTxWallet;
 
 /**
  * Collection of utilities for trading.
- * 
+ *
  * TODO (woodser): combine with TradeUtil.java ?
  */
 public class TradeUtils {
-    
+
     /**
      * Address to collect Haveno trade fees. TODO (woodser): move to config constants
      */
     public static String FEE_ADDRESS = "52FnB7ABUrKJzVQRpbMNrqDFWbcKLjFUq8Rgek7jZEuB6WE2ZggXaTf4FK6H8gQymvSrruHHrEuKhMN3qTMiBYzREKsmRKM";
-    
+
     /**
      * Check if the arbitrator signature for an offer is valid.
-     * 
+     *
      * @param arbitrator is the possible original arbitrator
      * @param signedOfferPayload is a signed offer payload
      * @return true if the arbitrator's signature is valid for the offer
      */
     public static boolean isArbitratorSignatureValid(OfferPayload signedOfferPayload, Mediator arbitrator) {
-        
+
         // remove arbitrator signature from signed payload
         String signature = signedOfferPayload.getArbitratorSignature();
         signedOfferPayload.setArbitratorSignature(null);
-        
+
         // get unsigned offer payload as json string
         String unsignedOfferAsJson = Utilities.objectToJson(signedOfferPayload);
-        
+
         // verify arbitrator signature
         boolean isValid = true;
         try {
@@ -82,22 +82,22 @@ public class TradeUtils {
         } catch (Exception e) {
             isValid = false;
         }
-        
+
         // replace signature
         signedOfferPayload.setArbitratorSignature(signature);
-        
+
         // return result
         return isValid;
     }
-    
+
     /**
      * Check if the maker signature for a trade request is valid.
-     * 
+     *
      * @param request is the trade request to check
      * @return true if the maker's signature is valid for the trade request
      */
     public static boolean isMakerSignatureValid(InitTradeRequest request, String signature, PubKeyRing makerPubKeyRing) {
-        
+
         // re-create trade request with signed fields
         InitTradeRequest signedRequest = new InitTradeRequest(
                 request.getTradeId(),
@@ -122,10 +122,10 @@ public class TradeUtils {
                 request.getPayoutAddress(),
                 null
                 );
-        
+
         // get trade request as string
         String tradeRequestAsJson = Utilities.objectToJson(signedRequest);
-        
+
         // verify maker signature
         try {
             return Sig.verify(makerPubKeyRing.getSignaturePubKey(),
@@ -135,12 +135,12 @@ public class TradeUtils {
             return false;
         }
     }
-    
+
     /**
      * Create a transaction to reserve a trade. The deposit amount is returned
      * to the sender's payout address. Additional funds are reserved to allow
      * fluctuations in the mining fee.
-     * 
+     *
      * @param xmrWalletService
      * @param offerId
      * @param tradeFee
@@ -148,7 +148,7 @@ public class TradeUtils {
      * @return a transaction to reserve a trade
      */
     public static MoneroTxWallet createReserveTx(XmrWalletService xmrWalletService, String offerId, BigInteger tradeFee, String returnAddress, BigInteger depositAmount) {
-        
+
         // get expected mining fee
         MoneroWallet wallet = xmrWalletService.getWallet();
         MoneroTxWallet miningFeeTx = wallet.createTx(new MoneroTxConfig()
@@ -156,7 +156,7 @@ public class TradeUtils {
                 .addDestination(TradeUtils.FEE_ADDRESS, tradeFee)
                 .addDestination(returnAddress, depositAmount));
         BigInteger miningFee = miningFeeTx.getFee();
-        
+
         // create reserve tx
         MoneroTxWallet reserveTx = wallet.createTx(new MoneroTxConfig()
                 .setAccountIndex(0)
@@ -165,10 +165,10 @@ public class TradeUtils {
 
         return reserveTx;
     }
-    
+
     /**
      * Create a transaction to deposit funds to the multisig wallet.
-     * 
+     *
      * @param xmrWalletService
      * @param tradeFee
      * @param destinationAddress
@@ -181,12 +181,12 @@ public class TradeUtils {
                 .addDestination(TradeUtils.FEE_ADDRESS, tradeFee)
                 .addDestination(depositAddress, depositAmount));
     }
-    
+
     /**
      * Process a reserve or deposit transaction used during trading.
      * Checks double spends, deposit amount and destination, trade fee, and mining fee.
      * The transaction is submitted but not relayed to the pool then flushed.
-     * 
+     *
      * @param daemon is the Monero daemon to check for double spends
      * @param wallet is the Monero wallet to verify the tx
      * @param depositAddress is the expected destination address for the deposit amount
@@ -201,10 +201,10 @@ public class TradeUtils {
     public static void processTradeTx(MoneroDaemon daemon, MoneroWallet wallet, String depositAddress, BigInteger depositAmount, BigInteger tradeFee, String txHash, String txHex, String txKey, List<String> keyImages, boolean miningFeePadding) {
         boolean submittedToPool = false;
         try {
-            
+
             // get tx from daemon
             MoneroTx tx = daemon.getTx(txHash);
-            
+
             // if tx is not submitted, submit but do not relay
             if (tx == null) {
                 MoneroSubmitTxResult result = daemon.submitTxHex(txHex, true); // TODO (woodser): invert doNotRelay flag to relay for library consistency?
@@ -214,14 +214,14 @@ public class TradeUtils {
             } else if (tx.isRelayed()) {
                 throw new RuntimeException("Trade tx must not be relayed");
             }
-            
+
             // verify reserved key images
             if (keyImages != null) {
                 Set<String> txKeyImages = new HashSet<String>();
                 for (MoneroOutput input : tx.getInputs()) txKeyImages.add(input.getKeyImage().getHex());
                 if (!txKeyImages.equals(new HashSet<String>(keyImages))) throw new Error("Reserve tx's inputs do not match claimed key images");
             }
-            
+
             // verify trade fee
             String feeAddress = TradeUtils.FEE_ADDRESS;
             MoneroCheckTx check = wallet.checkTxKey(txHash, txKey, feeAddress);
@@ -243,17 +243,17 @@ public class TradeUtils {
             if (miningFeePadding) depositThreshold  = depositThreshold.add(feeThreshold.multiply(BigInteger.valueOf(3l))); // prove reserve of at least deposit amount + (3 * min mining fee)
             if (check.getReceivedAmount().compareTo(depositThreshold) < 0) throw new RuntimeException("Deposit amount is not enough, needed " + depositThreshold + " but was " + check.getReceivedAmount());
         } finally {
-            
+
             // flush tx from pool if we added it
             if (submittedToPool) daemon.flushTxPool(txHash);
         }
     }
-    
+
     /**
      * Create a contract from a trade.
-     * 
+     *
      * TODO (woodser): refactor/reduce trade, process model, and trading peer models
-     * 
+     *
      * @param trade is the trade to create the contract from
      * @return the contract
      */
@@ -283,7 +283,7 @@ public class TradeUtils {
         );
         return contract;
     }
-    
+
     // TODO (woodser): remove the following utitilites?
 
     // Returns <MULTI_SIG, TRADE_PAYOUT> if both are AVAILABLE, otherwise null

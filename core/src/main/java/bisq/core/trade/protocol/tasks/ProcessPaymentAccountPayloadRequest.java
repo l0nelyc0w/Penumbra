@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.trade.protocol.tasks;
@@ -36,9 +36,9 @@ import org.fxmisc.easybind.Subscription;
 
 @Slf4j
 public class ProcessPaymentAccountPayloadRequest extends TradeTask {
-    
+
     private Subscription tradeStateSubscription;
-    
+
     @SuppressWarnings({"unused"})
     public ProcessPaymentAccountPayloadRequest(TaskRunner taskHandler, Trade trade) {
         super(taskHandler, trade);
@@ -49,24 +49,24 @@ public class ProcessPaymentAccountPayloadRequest extends TradeTask {
         try {
           runInterceptHook();
           if (trade.getTradingPeer().getPaymentAccountPayload() != null) throw new RuntimeException("Peer's payment account payload has already been set");
-          
+
           // get peer's payment account payload
           PaymentAccountPayloadRequest request = (PaymentAccountPayloadRequest) processModel.getTradeMessage(); // TODO (woodser): verify request
           PaymentAccountPayload paymentAccountPayload = request.getPaymentAccountPayload();
-          
+
           // verify hash of payment account payload
           byte[] peerPaymentAccountPayloadHash = trade instanceof MakerTrade ? trade.getContract().getTakerPaymentAccountPayloadHash() : trade.getContract().getMakerPaymentAccountPayloadHash();
           if (!Arrays.equals(paymentAccountPayload.getHash(), peerPaymentAccountPayloadHash)) throw new RuntimeException("Hash of peer's payment account payload does not match contract");
-          
+
           // set payment account payload
           trade.getTradingPeer().setPaymentAccountPayload(paymentAccountPayload);
-          
+
           // subscribe to trade state to notify ui when deposit txs seen in network
           tradeStateSubscription = EasyBind.subscribe(trade.stateProperty(), newValue -> {
             if (trade.isDepositPublished()) applyPublishedDepositTxs();
           });
           if (trade.isDepositPublished()) applyPublishedDepositTxs(); // deposit txs might be seen before subcription
-          
+
           // persist and complete
           processModel.getTradeManager().requestPersistence();
           complete();
@@ -74,7 +74,7 @@ public class ProcessPaymentAccountPayloadRequest extends TradeTask {
           failed(t);
         }
     }
-    
+
     private void applyPublishedDepositTxs() {
         MoneroWallet multisigWallet = processModel.getXmrWalletService().getMultisigWallet(trade.getId());
         MoneroTxWallet makerDepositTx = checkNotNull(multisigWallet.getTx(processModel.getMaker().getDepositTxHash()));

@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.trade.protocol.tasks;
@@ -93,7 +93,7 @@ public class ProcessInitMultisigRequest extends TradeTask {
             else if (!multisigParticipant.getPreparedMultisigHex().equals(request.getPreparedMultisigHex())) throw new RuntimeException("Message's prepared multisig differs from previous messages, previous: " + multisigParticipant.getPreparedMultisigHex() + ", message: " + request.getPreparedMultisigHex());
             if (multisigParticipant.getMadeMultisigHex() == null) multisigParticipant.setMadeMultisigHex(request.getMadeMultisigHex());
             else if (!multisigParticipant.getMadeMultisigHex().equals(request.getMadeMultisigHex())) throw new RuntimeException("Message's made multisig differs from previous messages");
-            
+
             // prepare multisig if applicable
             boolean updateParticipants = false;
             if (processModel.getPreparedMultisigHex() == null) {
@@ -212,7 +212,7 @@ public class ProcessInitMultisigRequest extends TradeTask {
                 new Date().getTime(),
                 processModel.getPreparedMultisigHex(),
                 processModel.getMadeMultisigHex());
-    
+
         log.info("Send {} with offerId {} and uid {} to peer {}", request.getClass().getSimpleName(), request.getTradeId(), request.getUid(), recipient);
         processModel.getP2PService().sendEncryptedDirectMessage(recipient, pubKeyRing, request, new SendDirectMessageListener() {
             @Override

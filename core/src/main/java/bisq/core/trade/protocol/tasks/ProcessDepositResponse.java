@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.trade.protocol.tasks;
@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class ProcessDepositResponse extends TradeTask {
-    
+
     @SuppressWarnings({"unused"})
     public ProcessDepositResponse(TaskRunner taskHandler, Trade trade) {
         super(taskHandler, trade);
@@ -42,10 +42,10 @@ public class ProcessDepositResponse extends TradeTask {
 
           // arbitrator has broadcast deposit txs
           trade.setState(Trade.State.MAKER_RECEIVED_DEPOSIT_TX_PUBLISHED_MSG); // TODO (woodser): maker and taker?
-          
+
           // set payment account payload
           trade.getSelf().setPaymentAccountPayload(processModel.getPaymentAccountPayload(trade));
-          
+
           // create request with payment account payload
           PaymentAccountPayloadRequest request = new PaymentAccountPayloadRequest(
                   trade.getOffer().getId(),
@@ -55,7 +55,7 @@ public class ProcessDepositResponse extends TradeTask {
                   Version.getP2PMessageVersion(),
                   new Date().getTime(),
                   trade.getSelf().getPaymentAccountPayload());
-          
+
           // send payment account payload to trading peer
           processModel.getP2PService().sendEncryptedDirectMessage(trade.getTradingPeerNodeAddress(), trade.getTradingPeerPubKeyRing(), request, new SendDirectMessageListener() {
               @Override
@@ -69,7 +69,7 @@ public class ProcessDepositResponse extends TradeTask {
                   failed();
               }
           });
-          
+
           complete();
         } catch (Throwable t) {
           failed(t);

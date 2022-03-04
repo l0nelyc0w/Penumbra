@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.offer;
@@ -184,12 +184,12 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
 
     @Override
     public void readPersisted(Runnable completeHandler) {
-        
+
         // read open offers
         persistenceManager.readPersisted(persisted -> {
                     openOffers.setAll(persisted.getList());
                     openOffers.forEach(openOffer -> openOffer.getOffer().setPriceFeedService(priceFeedService));
-                    
+
                     // read signed offers
                     signedOfferPersistenceManager.readPersisted(signedOfferPersisted -> {
                         signedOffers.setAll(signedOfferPersisted.getList());
@@ -409,7 +409,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
         PlaceOfferProtocol placeOfferProtocol = new PlaceOfferProtocol(
                 model,
                 transaction -> {
-                    
+
                     // save reserve tx with open offer
                     OpenOffer openOffer = new OpenOffer(offer, triggerPrice, model.getReserveTx().getHash(), model.getReserveTx().getFullHex(), model.getReserveTx().getKey());
                     openOffers.add(openOffer);
@@ -424,7 +424,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                 },
                 errorMessageHandler
         );
-        
+
         placeOfferProtocols.put(offer.getId(), placeOfferProtocol);
         placeOfferProtocol.placeOffer(); // TODO (woodser): if error placing offer (e.g. bad signature), remove protocol and unfreeze trade funds
     }
@@ -611,7 +611,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
     public Optional<OpenOffer> getOpenOfferById(String offerId) {
         return openOffers.stream().filter(e -> e.getId().equals(offerId)).findFirst();
     }
-    
+
     public Optional<SignedOffer> getSignedOfferById(String offerId) {
         return signedOffers.stream().filter(e -> e.getOfferId().equals(offerId)).findFirst();
     }
@@ -623,10 +623,10 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
     private void handleSignOfferRequest(SignOfferRequest request, NodeAddress peer) {
         log.info("Received SignOfferRequest from {} with offerId {} and uid {}",
                 peer, request.getOfferId(), request.getUid());
-        
+
         String errorMessage = null;
         try {
-            
+
             // verify this node is an arbitrator
             Mediator thisArbitrator = user.getRegisteredMediator();
             NodeAddress thisAddress = p2PService.getNetworkNode().getNodeAddress();
@@ -636,7 +636,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
               sendAckMessage(request.getClass(), peer, request.getPubKeyRing(), request.getOfferId(), request.getUid(), false, errorMessage);
               return;
             }
-            
+
             // verify arbitrator is signer of offer payload
             if (!thisAddress.equals(request.getOfferPayload().getArbitratorSigner())) {
                 errorMessage = "Cannot sign offer because offer payload is for a different arbitrator";
@@ -644,7 +644,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                 sendAckMessage(request.getClass(), peer, request.getPubKeyRing(), request.getOfferId(), request.getUid(), false, errorMessage);
                 return;
             }
-            
+
             // verify offer not seen before
             Optional<OpenOffer> openOfferOptional = getOpenOfferById(request.offerId);
             if (openOfferOptional.isPresent()) {
@@ -653,7 +653,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                 sendAckMessage(request.getClass(), peer, request.getPubKeyRing(), request.getOfferId(), request.getUid(), false, errorMessage);
                 return;
             }
-            
+
             // verify maker's reserve tx (double spend, trade fee, trade amount, mining fee)
             Offer offer = new Offer(request.getOfferPayload());
             BigInteger tradeFee = ParsingUtils.coinToAtomicUnits(offer.getMakerFee());
@@ -675,7 +675,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
             String signature = Sig.sign(keyRing.getSignatureKeyPair().getPrivate(), offerPayloadAsJson);
             OfferPayload signedOfferPayload = request.getOfferPayload();
             signedOfferPayload.setArbitratorSignature(signature);
-            
+
             // create record of signed offer
             SignedOffer signedOffer = new SignedOffer(signedOfferPayload.getId(), request.getReserveTxHash(), request.getReserveTxHex(), signature); // TODO (woodser): no need for signature to be part of SignedOffer?
             signedOffers.add(signedOffer);
@@ -717,18 +717,18 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
             sendAckMessage(request.getClass(), peer, request.getPubKeyRing(), request.getOfferId(), request.getUid(), false, errorMessage);
         }
     }
-    
+
     private void handleSignOfferResponse(SignOfferResponse response, NodeAddress peer) {
         log.info("Received SignOfferResponse from {} with offerId {} and uid {}",
                 peer, response.getOfferId(), response.getUid());
-        
+
         // get previously created protocol
         PlaceOfferProtocol protocol = placeOfferProtocols.get(response.getOfferId());
         if (protocol == null) {
             log.warn("No place offer protocol created for offer " + response.getOfferId());
             return;
         }
-        
+
         // handle response
         protocol.handleSignOfferResponse(response, peer);
     }
@@ -788,12 +788,12 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                         if (openOffer.getState() == OpenOffer.State.AVAILABLE) {
                             Offer offer = openOffer.getOffer();
                             if (preferences.getIgnoreTradersList().stream().noneMatch(fullAddress -> fullAddress.equals(peer.getFullAddress()))) {
-                                
+
                                 // set backup arbitrator if signer is not available
                                 Mediator backupMediator = DisputeAgentSelection.getLeastUsedArbitrator(tradeStatisticsManager, mediatorManager, offer.getOfferPayload().getArbitratorSigner());
                                 backupArbitratorNodeAddress = backupMediator == null ? null : backupMediator.getNodeAddress();
                                 openOffer.setBackupArbitrator(backupArbitratorNodeAddress);
-                                
+
                                 // maker signs taker's request // TODO (woodser): should maker signature include selected arbitrator?
                                 String tradeRequestAsJson = Utilities.objectToJson(request.getTradeRequest());
                                 makerSignature = Sig.sign(keyRing.getSignatureKeyPair().getPrivate(), tradeRequestAsJson);
@@ -840,7 +840,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                 log.warn(errorMessage);
                 availabilityResult = AvailabilityResult.UNCONF_TX_LIMIT_HIT;
             }
-            
+
             OfferAvailabilityResponse offerAvailabilityResponse = new OfferAvailabilityResponse(request.offerId,
                     availabilityResult,
                     makerSignature,
@@ -882,7 +882,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
     private boolean apiUserDeniedByOffer(OfferAvailabilityRequest request) {
         return preferences.isDenyApiTaker() && request.isTakerApiUser();
     }
-    
+
     private boolean takerDeniedByMaker(OfferAvailabilityRequest request) {
         if (request.getTradeRequest() == null) return true;
         return false; // TODO (woodser): implement taker verification here, doing work of ApplyFilter and VerifyPeersAccountAgeWitness
@@ -929,7 +929,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
     ///////////////////////////////////////////////////////////////////////////////////////////
     // Update persisted offer if a new capability is required after a software update
     ///////////////////////////////////////////////////////////////////////////////////////////
-    
+
     // TODO (woodser): arbitrator signature will be invalid if offer updated (exclude updateable fields from signature? re-sign?)
 
     private void maybeUpdatePersistedOffers() {

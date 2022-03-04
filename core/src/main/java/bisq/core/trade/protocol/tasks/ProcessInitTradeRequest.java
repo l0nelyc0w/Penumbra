@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.trade.protocol.tasks;
@@ -58,11 +58,11 @@ public class ProcessInitTradeRequest extends TradeTask {
 
             System.out.println("PROCESS INIT TRADE REQUEST");
             System.out.println(request);
-            
+
             // handle request as arbitrator
             TradingPeer multisigParticipant;
             if (trade instanceof ArbitratorTrade) {
-                
+
                 // handle request from taker
                 if (request.getSenderNodeAddress().equals(request.getTakerNodeAddress())) {
                     multisigParticipant = processModel.getTaker();
@@ -71,7 +71,7 @@ public class ProcessInitTradeRequest extends TradeTask {
                     trade.setTakerPubKeyRing(request.getPubKeyRing());
                     if (!TradeUtils.isMakerSignatureValid(request, request.getMakerSignature(), offer.getPubKeyRing())) throw new RuntimeException("Maker signature is invalid for the trade request"); // verify maker signature
                 }
-                
+
                 // handle request from maker
                 else if (request.getSenderNodeAddress().equals(request.getMakerNodeAddress())) {
                     multisigParticipant = processModel.getMaker();
@@ -83,14 +83,14 @@ public class ProcessInitTradeRequest extends TradeTask {
                     throw new RuntimeException("Sender is not trade's maker or taker");
                 }
             }
-            
+
             // handle maker trade
             else if (trade instanceof MakerTrade) {
                 multisigParticipant = processModel.getTaker();
                 trade.setTakerNodeAddress(request.getSenderNodeAddress()); // arbitrator sends maker InitTradeRequest with taker's node address and pub key ring
                 trade.setTakerPubKeyRing(request.getPubKeyRing());
             }
-            
+
             // handle invalid trade type
             else {
                 throw new RuntimeException("Invalid trade type to process init trade request: " + trade.getClass().getName());

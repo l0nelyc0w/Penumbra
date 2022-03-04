@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.trade;
@@ -312,7 +312,7 @@ public class TradeManager implements PersistedDataHost, DecryptedDirectMessageLi
     ///////////////////////////////////////////////////////////////////////////////////////////
 
     private void initPersistedTrades() {
-        
+
         // open trades in parallel since each may open a multisig wallet
         List<Trade> trades = tradableList.getList();
         if (!trades.isEmpty()) {
@@ -333,7 +333,7 @@ public class TradeManager implements PersistedDataHost, DecryptedDirectMessageLi
                 throw new RuntimeException(e);
             }
         }
-        
+
         persistedTradesInitialized.set(true);
 
         // We do not include failed trades as they should not be counted anyway in the trade statistics
@@ -515,7 +515,7 @@ public class TradeManager implements PersistedDataHost, DecryptedDirectMessageLi
           trade.getSelf().setReserveTxKey(openOffer.getReserveTxKey());
           trade.getSelf().setReserveTxKeyImages(offer.getOfferPayload().getReserveTxKeyImages());
           tradableList.add(trade);
-          
+
           // notify on phase changes
           // TODO (woodser): save subscription, bind on startup
           EasyBind.subscribe(trade.statePhaseProperty(), phase -> {

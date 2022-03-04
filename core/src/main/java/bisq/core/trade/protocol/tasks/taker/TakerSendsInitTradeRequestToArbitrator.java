@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.trade.protocol.tasks.taker;
@@ -41,7 +41,7 @@ public class TakerSendsInitTradeRequestToArbitrator extends TradeTask {
     protected void run() {
         try {
             runInterceptHook();
-            
+
             // send request to offer signer
             sendInitTradeRequest(trade.getOffer().getOfferPayload().getArbitratorSigner(), new SendDirectMessageListener() {
                 @Override
@@ -49,7 +49,7 @@ public class TakerSendsInitTradeRequestToArbitrator extends TradeTask {
                     log.info("{} arrived at arbitrator: offerId={}", InitTradeRequest.class.getSimpleName(), trade.getId());
                     complete();
                 }
-                
+
                 // send request to backup arbitrator if signer unavailable
                 @Override
                 public void onFault(String errorMessage) {
@@ -77,18 +77,18 @@ public class TakerSendsInitTradeRequestToArbitrator extends TradeTask {
           failed(t);
         }
     }
-    
+
     private void sendInitTradeRequest(NodeAddress arbitratorNodeAddress, SendDirectMessageListener listener) {
-        
+
         // get registered arbitrator
         Mediator arbitrator = processModel.getUser().getAcceptedMediatorByAddress(arbitratorNodeAddress);
         if (arbitrator == null) throw new RuntimeException("Node address " + arbitratorNodeAddress + " is not a registered arbitrator");
-        
+
         // set pub keys
         processModel.getArbitrator().setPubKeyRing(arbitrator.getPubKeyRing());
         trade.setArbitratorNodeAddress(arbitratorNodeAddress);
         trade.setArbitratorPubKeyRing(processModel.getArbitrator().getPubKeyRing());
-        
+
         // create request to arbitrator
         InitTradeRequest makerRequest = (InitTradeRequest) processModel.getTradeMessage(); // taker's InitTradeRequest to maker
         InitTradeRequest arbitratorRequest = new InitTradeRequest(

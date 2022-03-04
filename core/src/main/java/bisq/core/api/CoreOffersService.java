@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.api;
@@ -170,10 +170,10 @@ class CoreOffersService {
 
         return offers;
     }
-    
+
     private Set<Offer> getUnreservedOffers(List<Offer> offers) {
         Set<Offer> unreservedOffers = new HashSet<Offer>();
-        
+
         // collect reserved key images and check for duplicate funds
         List<String> allKeyImages = new ArrayList<String>();
         for (Offer offer : offers) {
@@ -181,7 +181,7 @@ class CoreOffersService {
             if (!allKeyImages.add(keyImage)) unreservedOffers.add(offer);
           }
         }
-        
+
         // get spent key images
         // TODO (woodser): paginate offers and only check key images of current page
         List<String> spentKeyImages = new ArrayList<String>();
@@ -189,7 +189,7 @@ class CoreOffersService {
         for (int i = 0; i < spentStatuses.size(); i++) {
           if (spentStatuses.get(i) != MoneroKeyImageSpentStatus.NOT_SPENT) spentKeyImages.add(allKeyImages.get(i));
         }
-        
+
         // check for offers with spent key images
         for (Offer offer : offers) {
           if (unreservedOffers.contains(offer)) continue;
@@ -197,7 +197,7 @@ class CoreOffersService {
             if (spentKeyImages.contains(keyImage)) unreservedOffers.add(offer);
           }
         }
-        
+
         return unreservedOffers;
     }
 

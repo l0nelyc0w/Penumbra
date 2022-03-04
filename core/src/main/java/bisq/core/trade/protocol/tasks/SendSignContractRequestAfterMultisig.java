@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.trade.protocol.tasks;
@@ -43,7 +43,7 @@ import monero.wallet.model.MoneroTxWallet;
 // TODO (woodser): separate classes for deposit tx creation and contract request, or combine into ProcessInitMultisigRequest
 @Slf4j
 public class SendSignContractRequestAfterMultisig extends TradeTask {
-    
+
     private boolean ack1 = false;
     private boolean ack2 = false;
     private boolean failed = false;
@@ -57,10 +57,10 @@ public class SendSignContractRequestAfterMultisig extends TradeTask {
     protected void run() {
         try {
           runInterceptHook();
-          
+
           // skip if multisig wallet not complete
           if (!processModel.isMultisigSetupComplete()) return; // TODO: woodser: this does not ack original request?
-          
+
           // skip if deposit tx already created
           if (processModel.getDepositTxXmr() != null) return;
 
@@ -69,7 +69,7 @@ public class SendSignContractRequestAfterMultisig extends TradeTask {
           for (String reserveTxKeyImage : trade.getSelf().getReserveTxKeyImages()) {
               wallet.thawOutput(reserveTxKeyImage);
           }
-          
+
           // create deposit tx
           BigInteger tradeFee = ParsingUtils.coinToAtomicUnits(trade instanceof MakerTrade ? trade.getOffer().getMakerFee() : trade.getTakerFee());
           Offer offer = processModel.getOffer();
@@ -77,17 +77,17 @@ public class SendSignContractRequestAfterMultisig extends TradeTask {
           MoneroWallet multisigWallet = processModel.getProvider().getXmrWalletService().getMultisigWallet(trade.getId());
           String multisigAddress = multisigWallet.getPrimaryAddress();
           MoneroTxWallet depositTx = TradeUtils.createDepositTx(trade.getXmrWalletService(), tradeFee, multisigAddress, depositAmount);
-          
+
           // freeze deposit outputs
           // TODO (woodser): save frozen key images and unfreeze if trade fails before deposited to multisig
           for (MoneroOutput input : depositTx.getInputs()) {
               wallet.freezeOutput(input.getKeyImage().getHex());
           }
-          
+
           // save process state
           processModel.setDepositTxXmr(depositTx);
           trade.getSelf().setDepositTxHash(depositTx.getHash());
-          
+
           // complete on successful ack messages
           TradeListener ackListener = new TradeListener() {
               @Override
@@ -117,9 +117,9 @@ public class SendSignContractRequestAfterMultisig extends TradeTask {
           failed(t);
         }
     }
-    
+
     private void sendSignContractRequest(NodeAddress nodeAddress, PubKeyRing pubKeyRing, Offer offer, MoneroTxWallet depositTx) {
-        
+
         // create request to sign contract
         SignContractRequest request = new SignContractRequest(
                 trade.getOffer().getId(),
@@ -132,7 +132,7 @@ public class SendSignContractRequestAfterMultisig extends TradeTask {
                 trade.getProcessModel().getPaymentAccountPayload(trade).getHash(),
                 trade.getXmrWalletService().getAddressEntry(offer.getId(), XmrAddressEntry.Context.TRADE_PAYOUT).get().getAddressString(),
                 depositTx.getHash());
-        
+
         // send request
         processModel.getP2PService().sendEncryptedDirectMessage(nodeAddress, pubKeyRing, request, new SendDirectMessageListener() {
             @Override
@@ -147,7 +147,7 @@ public class SendSignContractRequestAfterMultisig extends TradeTask {
             }
         });
     }
-    
+
     private void completeAux() {
         processModel.getXmrWalletService().getWallet().save();
         complete();

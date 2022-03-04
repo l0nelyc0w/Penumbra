@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.trade;
@@ -494,11 +494,11 @@ public abstract class Trade implements Tradable, Model {
         this.takerFeeAsLong = takerFee.value;
         this.takeOfferDate = new Date().getTime();
         this.tradeListeners = new ArrayList<TradeListener>();
-        
+
         this.makerNodeAddress = makerNodeAddress;
         this.takerNodeAddress = takerNodeAddress;
         this.arbitratorNodeAddress = arbitratorNodeAddress;
-        
+
         setTradeAmount(tradeAmount);
     }
 
@@ -711,15 +711,15 @@ public abstract class Trade implements Tradable, Model {
           setConfirmedState();  // TODO (woodser): bisq "confirmed" = xmr unlocked after 10 confirmations
         }
     }
-    
+
     public void setupDepositTxsListener() {
-        
+
         // ignore if already listening
         if (depositTxListener != null) {
             log.warn("Trade {} already listening for deposit txs", getId());
             return;
         }
-        
+
         // create listener for deposit transactions
         MoneroWallet multisigWallet = processModel.getXmrWalletService().getMultisigWallet(getId());
         depositTxListener = processModel.getXmrWalletService().new HavenoWalletListener(new MoneroWalletListener() { // TODO (woodser): separate into own class file
@@ -870,7 +870,7 @@ public abstract class Trade implements Tradable, Model {
         listener.onVerifiedTradeMessage(message, sender);
       }
     }
-    
+
     // notified from TradeProtocol of ack messages
     public void onAckMessage(AckMessage ackMessage, NodeAddress sender) {
       for (TradeListener listener : new ArrayList<TradeListener>(tradeListeners)) {  // copy array to allow listener invocation to unregister listener without concurrent modification exception
@@ -953,33 +953,33 @@ public abstract class Trade implements Tradable, Model {
     ///////////////////////////////////////////////////////////////////////////////////////////
     // Getter
     ///////////////////////////////////////////////////////////////////////////////////////////
-    
+
     public TradingPeer getSelf() {
         if (this instanceof MakerTrade) return processModel.getMaker();
         if (this instanceof TakerTrade) return processModel.getTaker();
         if (this instanceof ArbitratorTrade) return processModel.getArbitrator();
         throw new RuntimeException("Trade is not maker, taker, or arbitrator");
     }
-    
+
     public TradingPeer getMaker() {
         return processModel.getMaker();
     }
-    
+
     public TradingPeer getTaker() {
         return processModel.getTaker();
     }
-    
+
     public TradingPeer getBuyer() {
         return offer.getDirection() == Direction.BUY ? processModel.getMaker() : processModel.getTaker();
     }
-    
+
     public TradingPeer getSeller() {
         return offer.getDirection() == Direction.BUY ? processModel.getTaker() : processModel.getMaker();
     }
 
     /**
      * Get the taker if maker, maker if taker, null if arbitrator.
-     * 
+     *
      * @return the trade peer
      */
     public TradingPeer getTradingPeer() {
@@ -988,12 +988,12 @@ public abstract class Trade implements Tradable, Model {
       else if (this instanceof ArbitratorTrade) return null;
       else throw new RuntimeException("Unknown trade type: " + getClass().getName());
     }
-    
+
     /**
      * Get the peer with the given address which can be self.
-     * 
+     *
      * TODO (woodser): this naming convention is confusing
-     * 
+     *
      * @param address is the address of the peer to get
      * @return the trade peer
      */

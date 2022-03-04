@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.offer;
@@ -25,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 @EqualsAndHashCode
 @Slf4j
 public final class SignedOffer implements PersistablePayload {
-    
+
     @Getter
     private final String offerId;
     @Getter
@@ -34,7 +34,7 @@ public final class SignedOffer implements PersistablePayload {
     private final String reserveTxHex;
     @Getter
     private final String arbitratorSignature;
-    
+
     public SignedOffer(String offerId, String reserveTxHash, String reserveTxHex, String arbitratorSignature) {
         this.offerId = offerId;
         this.reserveTxHash = reserveTxHash;
@@ -53,7 +53,7 @@ public final class SignedOffer implements PersistablePayload {
                 .setReserveTxHash(reserveTxHash)
                 .setReserveTxHex(reserveTxHex)
                 .setArbitratorSignature(arbitratorSignature);
-        
+
         return builder.build();
     }
 

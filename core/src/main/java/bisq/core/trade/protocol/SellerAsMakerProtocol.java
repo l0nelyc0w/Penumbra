@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.trade.protocol;
@@ -67,7 +67,7 @@ public class SellerAsMakerProtocol extends SellerProtocol implements MakerProtoc
     ///////////////////////////////////////////////////////////////////////////////////////////
     // MakerProtocol
     ///////////////////////////////////////////////////////////////////////////////////////////
-    
+
     // TODO (woodser): these methods are duplicated with BuyerAsMakerProtocol due to single inheritance
 
     @Override
@@ -163,7 +163,7 @@ public class SellerAsMakerProtocol extends SellerProtocol implements MakerProtoc
                 .withTimeout(30))
                 .executeTasks();
     }
-    
+
     @Override
     public void handleDepositResponse(DepositResponse response, NodeAddress sender) {
         System.out.println("BuyerAsMakerProtocol.handleDepositResponse()");
@@ -186,7 +186,7 @@ public class SellerAsMakerProtocol extends SellerProtocol implements MakerProtoc
                 .withTimeout(30))
                 .executeTasks();
     }
-    
+
     @Override
     public void handlePaymentAccountPayloadRequest(PaymentAccountPayloadRequest request, NodeAddress sender) {
         System.out.println("BuyerAsMakerProtocol.handlePaymentAccountPayloadRequest()");

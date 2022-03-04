@@ -1,18 +1,18 @@
 /*
- * This file is part of Haveno.
+ * This file is part of Penumbra.
  *
- * Haveno is free software: you can redistribute it and/or modify it
+ * Penumbra is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or (at
  * your option) any later version.
  *
- * Haveno is distributed in the hope that it will be useful, but WITHOUT
+ * Penumbra is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public
  * License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with Haveno. If not, see <http://www.gnu.org/licenses/>.
+ * along with Penumbra. If not, see <http://www.gnu.org/licenses/>.
  */
 
 package bisq.core.trade.protocol.tasks;
@@ -38,15 +38,15 @@ import monero.wallet.MoneroWallet;
 /**
  * Arbitrator sends InitTradeRequest to maker after receiving InitTradeRequest
  * from taker and verifying taker reserve tx.
- * 
+ *
  * Arbitrator sends InitMultisigRequests after the maker acks.
  */
 @Slf4j
 public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
-    
+
     private boolean takerAck;
     private boolean makerAck;
-    
+
     @SuppressWarnings({"unused"})
     public ArbitratorSendsInitTradeAndMultisigRequests(TaskRunner taskHandler, Trade trade) {
         super(taskHandler, trade);
@@ -56,23 +56,23 @@ public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
     protected void run() {
         try {
             runInterceptHook();
-            
+
             // skip if request not from taker
             InitTradeRequest request = (InitTradeRequest) processModel.getTradeMessage();
             if (!request.getSenderNodeAddress().equals(trade.getTakerNodeAddress())) {
                 complete();
                 return;
             }
-            
+
             // arbitrator signs offer id as nonce to avoid challenge protocol
             byte[] sig = Sig.sign(processModel.getKeyRing().getSignatureKeyPair().getPrivate(), processModel.getOfferId().getBytes(Charsets.UTF_8));
-            
+
             // save pub keys
             processModel.getArbitrator().setPubKeyRing(processModel.getPubKeyRing()); // TODO (woodser): why duplicating field in process model
             trade.setArbitratorPubKeyRing(processModel.getPubKeyRing());
             trade.setMakerPubKeyRing(trade.getOffer().getPubKeyRing());
             trade.setTakerPubKeyRing(request.getPubKeyRing());
-            
+
             // create request to initialize trade with maker
             InitTradeRequest makerRequest = new InitTradeRequest(
                     processModel.getOfferId(),
@@ -96,7 +96,7 @@ public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
                     null,
                     null,
                     null);
-            
+
             // listen for maker to ack InitTradeRequest
             TradeListener listener = new TradeListener() {
                 @Override
@@ -134,19 +134,19 @@ public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
             failed(t);
         }
     }
-    
+
     private void sendInitMultisigRequests() {
-        
+
         // ensure arbitrator has maker's reserve tx
         if (processModel.getMaker().getReserveTxHash() == null) {
             log.warn("Arbitrator {} does not have maker's reserve tx after initializing trade", P2PService.getMyNodeAddress());
             failed();
             return;
         }
-        
+
         // create wallet for multisig
         MoneroWallet multisigWallet = processModel.getXmrWalletService().createMultisigWallet(trade.getId());
-        
+
         // prepare multisig
         String preparedHex = multisigWallet.prepareMultisig();
         processModel.setPreparedMultisigHex(preparedHex);
@@ -206,7 +206,7 @@ public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
                 }
         );
     }
-    
+
     private void checkComplete() {
         if (makerAck && takerAck) complete();
     }
