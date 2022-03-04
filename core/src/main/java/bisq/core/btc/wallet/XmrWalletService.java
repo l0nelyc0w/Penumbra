@@ -313,7 +313,7 @@ public class XmrWalletService {
         public void run() {
           try { walletsSetup.getWalletConfig().closeWallet(openWallet, true); }
           catch (Exception e) {
-            log.warn("Error closing monero-wallet-rpc subprocess. Was Haveno stopped manually with ctrl+c?");
+            log.warn("Error closing monero-wallet-rpc subprocess. Was Penumbra stopped manually with ctrl+c?");
           }
         }
       }));

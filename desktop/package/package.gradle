@@ -227,8 +227,8 @@ task packageInstallers {
         }
 
         String appDescription = 'A decentralized bitcoin exchange network.'
-        String appCopyright = '© 2021 Haveno'
-        String appNameAndVendor = 'Haveno'
+        String appCopyright = '© 2022 Penumbra'
+        String appNameAndVendor = 'Penumbra'
 
         String commonOpts = new String(
                 // Generic options
