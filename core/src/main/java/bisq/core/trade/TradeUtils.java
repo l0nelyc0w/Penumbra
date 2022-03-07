@@ -55,7 +55,7 @@ public class TradeUtils {
     /**
      * Address to collect Haveno trade fees. TODO (woodser): move to config constants
      */
-    public static String FEE_ADDRESS = "52FnB7ABUrKJzVQRpbMNrqDFWbcKLjFUq8Rgek7jZEuB6WE2ZggXaTf4FK6H8gQymvSrruHHrEuKhMN3qTMiBYzREKsmRKM";
+    public static String FEE_ADDRESS = "52FnB7ABUrKJzVQRpbMNrqDFWbcKLjFUq8Rgek7jZEuB6WE2ZggXaTf4FK6H8gQymvSrruHHrEuKhMN3qTMiBYzREKsmRKM";//lolen
 
     /**
      * Check if the arbitrator signature for an offer is valid.
@@ -223,7 +223,7 @@ public class TradeUtils {
             }
 
             // verify trade fee
-            String feeAddress = TradeUtils.FEE_ADDRESS;
+            String feeAddress = TradeUtils.FEE_ADDRESS;//lolen
             MoneroCheckTx check = wallet.checkTxKey(txHash, txKey, feeAddress);
             if (!check.isGood()) throw new RuntimeException("Invalid proof of trade fee");
             if (!check.getReceivedAmount().equals(tradeFee)) throw new RuntimeException("Trade fee is incorrect amount, expected " + tradeFee + " but was " + check.getReceivedAmount());

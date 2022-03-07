@@ -681,6 +681,20 @@ public abstract class MutableOfferViewModel<M extends MutableOfferDataModel> ext
 
     }
 
+    boolean fundFromExternalWallet() {
+        if (dataModel.getIsBtcWalletFunded().get()) {
+            updateButtonDisableState();
+            return true;
+        } else {
+            new Popup().warning(Res.get("shared.notEnoughFunds",
+                    btcFormatter.formatCoinWithCode(dataModel.totalToPayAsCoinProperty().get())))
+                    .closeButtonText("Back")
+                    .show();
+            return false;
+        }
+
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////
     // Handle focus
     ///////////////////////////////////////////////////////////////////////////////////////////

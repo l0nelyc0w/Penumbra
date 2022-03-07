@@ -265,6 +265,19 @@ class TakeOfferViewModel extends ActivatableWithDataModel<TakeOfferDataModel> im
         }
     }
 
+    boolean fundFromExternalWallet() {
+        if (dataModel.getIsBtcWalletFunded().get()) {
+            updateButtonDisableState();
+            return true;
+        } else {
+            new Popup().warning(Res.get("shared.notEnoughFunds",
+                    btcFormatter.formatCoinWithCode(dataModel.getTotalToPayAsCoin().get())))
+                    .closeButtonText("Back")
+                    .show();
+            return false;
+        }
+    }
+
     private void applyTakerFee() {
         tradeFeeDescription.set(Res.get("createOffer.tradeFee.descriptionBTCOnly"));
         Coin takerFeeAsCoin = dataModel.getTakerFee();

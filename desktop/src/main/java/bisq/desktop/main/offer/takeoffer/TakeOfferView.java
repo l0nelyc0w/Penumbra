@@ -900,7 +900,8 @@ public class TakeOfferView extends ActivatableViewAndModel<AnchorPane, TakeOffer
         label.setPadding(new Insets(5, 0, 0, 0));
         Button fundFromExternalWalletButton = new AutoTooltipButton(Res.get("shared.fundFromExternalWalletButton"));
         fundFromExternalWalletButton.setDefaultButton(false);
-        fundFromExternalWalletButton.setOnAction(e -> GUIUtil.showFeeInfoBeforeExecute(this::openWallet));
+        //fundFromExternalWalletButton.setOnAction(e -> GUIUtil.showFeeInfoBeforeExecute(this::openWallet));
+        fundFromExternalWalletButton.setOnAction(e -> model.fundFromExternalWallet());
         waitingForFundsBusyAnimation = new BusyAnimation(false);
         waitingForFundsLabel = new AutoTooltipLabel();
         waitingForFundsLabel.setPadding(new Insets(5, 0, 0, 0));

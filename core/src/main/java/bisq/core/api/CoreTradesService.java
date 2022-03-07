@@ -190,6 +190,7 @@ class CoreTradesService {
                 fee.toFriendlyString(),
                 receiverAmount.toFriendlyString(),
                 memo));
+        /*
         tradeManager.onWithdrawRequest(
                 toAddress,
                 amount,
@@ -203,6 +204,8 @@ class CoreTradesService {
                     log.error(errorMessage, throwable);
                     throw new IllegalStateException(errorMessage, throwable);
                 });
+
+         */
     }
 
     String getTradeRole(String tradeId) {

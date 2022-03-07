@@ -75,6 +75,8 @@ import javafx.collections.ObservableList;
 
 import org.bouncycastle.crypto.params.KeyParameter;
 
+import java.math.BigInteger;
+
 import java.util.Date;
 import java.util.stream.Collectors;
 
@@ -200,8 +202,8 @@ public class PendingTradesDataModel extends ActivatableDataModel {
     }
 
     public void onWithdrawRequest(String toAddress,
-                                  Coin amount,
-                                  Coin fee,
+                                  BigInteger amount,
+                                  BigInteger fee,
                                   KeyParameter aesKey,
                                   @Nullable String memo,
                                   ResultHandler resultHandler,

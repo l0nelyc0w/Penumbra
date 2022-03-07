@@ -92,6 +92,9 @@ import javafx.collections.ObservableList;
 
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.fxmisc.easybind.EasyBind;
+
+import java.math.BigInteger;
+
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -120,6 +123,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 
 
+import monero.wallet.MoneroWallet;
+import monero.wallet.model.MoneroTxConfig;
 import monero.wallet.model.MoneroTxWallet;
 
 public class TradeManager implements PersistedDataHost, DecryptedDirectMessageListener {
@@ -785,14 +790,23 @@ public class TradeManager implements PersistedDataHost, DecryptedDirectMessageLi
 
     // TODO (woodser): remove this function
     public void onWithdrawRequest(String toAddress,
-          Coin amount,
-          Coin fee,
+          BigInteger amount,
+          BigInteger fee,
           KeyParameter aesKey,
           Trade trade,
           @Nullable String memo,
           ResultHandler resultHandler,
           FaultHandler faultHandler) {
-        throw new RuntimeException("Withdraw trade funds after payout to Haveno wallet not supported");
+        //throw new RuntimeException("Withdraw trade funds after payout to Haveno wallet not supported");
+        MoneroWallet wallet = xmrWalletService.getWallet();
+        MoneroTxWallet withdraw_tx = wallet.createTx(new MoneroTxConfig()
+                .setAccountIndex(0)
+                .addDestination(toAddress, amount)
+                .setRelay(true));
+        if (withdraw_tx.isRelayed())
+            resultHandler.handleResult();
+        //else
+            //faultHandler.handleFault(Res.get("portfolio.pending."), null);
     }
 
     // If trade was completed (closed without fault but might be closed by a dispute) we move it to the closed trades
