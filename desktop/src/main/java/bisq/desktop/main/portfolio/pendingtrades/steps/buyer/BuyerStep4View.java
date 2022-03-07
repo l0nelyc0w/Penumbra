@@ -204,6 +204,7 @@ public class BuyerStep4View extends TradeStepView {
 
     private void reviewWithdrawal() {
       //throw new RuntimeException("BuyerStep4View.reviewWithdrawal() not yet updated for XMR");
+        Coin amount_coin = trade.getPayoutAmount();
         BigInteger amount = ParsingUtils.coinToAtomicUnits(trade.getPayoutAmount());
         XmrWalletService walletService = model.dataModel.xmrWalletService;
 
@@ -242,16 +243,13 @@ public class BuyerStep4View extends TradeStepView {
 //                        String recAmount = formatter.formatCoinWithCode(receiverAmount);
 
                 //ARE-YOU-SURE?
-
+                //lolen: need to compare amount with balance to see if available
+                if (balance.isGreaterThan(amount_coin) || balance.equals(amount_coin)){
 //                        new Popup().headLine(Res.get("portfolio.pending.step5_buyer.confirmWithdrawal"))
                 new Popup().headLine(Res.get("portfolio.pending.step5_buyer.confirmWithdrawal"))
                         .confirmation(Res.get("shared.sendFundsDetailsWithFee",
-                                //formatter.formatCoinWithCode(amount),
                                 fromAddresses,
                                 toAddresses,
-//                                        formatter.formatCoinWithCode(fee),
-//                                        feePerVbyte,
-//                                        vkb,
                                 amount))
                         .actionButtonText(Res.get("shared.yes"))
                         .onAction(() -> doWithdrawal(amount, miningFee))
@@ -261,11 +259,9 @@ public class BuyerStep4View extends TradeStepView {
                             withdrawToExternalWalletButton.setDisable(false);
                         })
                         .show();
-//                    } else {
+                    } else {
                 new Popup().warning(Res.get("portfolio.pending.step5_buyer.amountTooLow")).show();
-                //NOT-ENOUGH-M0NIES
-                //}
-//                }
+                }
 //            } catch (AddressFormatException e) {
 //                validateWithdrawAddress();
 //            } catch (AddressEntryException e) {
