@@ -538,7 +538,7 @@ public class WalletsSetup {
     }
 
     public boolean isChainHeightSyncedWithinTolerance() {
-        Long peersChainHeight = walletConfig.vXmrDaemon.getSyncInfo().getTargetHeight();
+        Long peersChainHeight = walletConfig.vXmrDaemon.getSyncInfo().getHeight();
         if (peersChainHeight == 0) return true; // monero-daemon-rpc sync_info's target_height returns 0 when node is fully synced
         long bestChainHeight = chainHeight.get();
         if (Math.abs(peersChainHeight - bestChainHeight) <= 3) {

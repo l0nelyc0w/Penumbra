@@ -55,7 +55,7 @@ public class TradeUtils {
     /**
      * Address to collect Haveno trade fees. TODO (woodser): move to config constants
      */
-    public static String FEE_ADDRESS = "52FnB7ABUrKJzVQRpbMNrqDFWbcKLjFUq8Rgek7jZEuB6WE2ZggXaTf4FK6H8gQymvSrruHHrEuKhMN3qTMiBYzREKsmRKM";//lolen
+    public static String FEE_ADDRESS = "42sjRNZYxcyWK3Bd3e6MNaR8zmjNrze8W5fDjttJ152WPReFUj5ung4fw7y73DTtFXjVRGSkonjW5J5XvUXub2xEV3ufoK4";//lolen
 
     /**
      * Check if the arbitrator signature for an offer is valid.

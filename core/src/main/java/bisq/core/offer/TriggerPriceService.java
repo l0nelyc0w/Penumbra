@@ -156,7 +156,7 @@ public class TriggerPriceService {
             openOfferManager.deactivateOpenOffer(openOffer, () -> {
             }, errorMessage -> {
             });
-        } else if (openOffer.getState() == OpenOffer.State.AVAILABLE) {
+        } else if (openOffer.getState() == OpenOffer.State.AVAILABLE) {/*
             // check the mempool if it has not been done before
             if (openOffer.getMempoolStatus() < 0 && mempoolService.canRequestBeMade(openOffer.getOffer().getOfferPayload())) {
                 mempoolService.validateOfferMakerTx(openOffer.getOffer().getOfferPayload(), (txValidator -> {
@@ -170,7 +170,7 @@ public class TriggerPriceService {
                 }, errorMessage -> {
                 });
             }
-        }
+        */}
     }
 
     private void onAddedOpenOffers(List<? extends OpenOffer> openOffers) {

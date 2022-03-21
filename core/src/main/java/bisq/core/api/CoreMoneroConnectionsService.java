@@ -19,8 +19,8 @@ public class CoreMoneroConnectionsService {
 
     // TODO (woodser): support each network type, move to config, remove localhost authentication
     private static final List<MoneroRpcConnection> DEFAULT_CONNECTIONS = Arrays.asList(
-            //new MoneroRpcConnection("http://localhost:18081", "penumbra", "password111").setPriority(1), // localhost is first priority
-            new MoneroRpcConnection("http://xmr.fail:18081", "", "").setPriority(2)
+            new MoneroRpcConnection("http://127.0.0.1:18081", "", "").setPriority(1) // localhost is first priority
+
     );
 
     private final Object lock = new Object();

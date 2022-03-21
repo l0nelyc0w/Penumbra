@@ -124,9 +124,9 @@ public class WalletAppSetup {
                     if (exception == null) {
                         double percentage = (double) downloadPercentage;
                         btcSyncProgress.set(percentage);
-                        int bestChainHeight = walletsSetup.getChain() != null ?
-                                walletsSetup.getChain().getBestChainHeight() :
-                                0;
+                        //int bestChainHeight = walletsSetup.getChain() != null ?
+                        //        walletsSetup.getChain().getBestChainHeight() :
+                        int bestChainHeight = chainHeight != null ? chainHeight.intValue() : 0;
                         String chainHeightAsString = bestChainHeight > 0 ?
                                 String.valueOf(bestChainHeight) :
                                 "";

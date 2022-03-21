@@ -29,7 +29,7 @@ public class DevEnv {
     // peer (click user icon and alt+r), filter/block offers by various data like offer ID (cmd + f).
     // The user can set a program argument to ignore all of those privileged network_messages. They are intended for
     // emergency cases only (beside update message and arbitrator registration).
-    public static final String DEV_PRIVILEGE_PUB_KEY = "0273890424fff5cb39eea47820130b59d9f18711680a201dfe13e1af332da7b48f";
+    public static final String DEV_PRIVILEGE_PUB_KEY = "cd293be6cea034bd45a0352775a219ef5dc7825ce55d1f7dae9762d80ce64411";
     public static final String DEV_PRIVILEGE_PRIV_KEY = "bab72d760d4f979d30624f228a6a62837bd9be2530d5e434a0a3d996f8889d41";
 
     public static void setup(Config config) {

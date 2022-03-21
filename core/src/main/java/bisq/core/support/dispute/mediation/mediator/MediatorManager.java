@@ -46,23 +46,24 @@ public class MediatorManager extends DisputeAgentManager<Mediator> {
     }
 
     @Override
-    protected List<String> getPubKeyList() {
-        return List.of("03be5471ff9090d322110d87912eefe89871784b1754d0707fdb917be5d88d3809",
-                "023736953a5a6638db71d7f78edc38cea0e42143c3b184ee67f331dafdc2c59efa",
-                "03d82260038253f7367012a4fc0c52dac74cfc67ac9cfbc3c3ad8fca746d8e5fc6",
-                "02dac85f726121ef333d425bc8e13173b5b365a6444176306e6a0a9e76ae1073bd",
-                "0342a5b37c8f843c3302e930d0197cdd8948a6f76747c05e138a6671a6a4caf739",
-                "027afa67c920867a70dfad77db6c6f74051f5af8bf56a1ad479f0bc4005df92325",
-                "03505f44f1893b64a457f8883afdd60774d7f4def6f82bb6f60be83a4b5b85cf82",
-                "0277d2d505d28ad67a03b001ef66f0eaaf1184fa87ebeaa937703cec7073cb2e8f",
-                "027cb3e9a56a438714e2144e2f75db7293ad967f12d5c29b17623efbd35ddbceb0",
-                "03be5471ff9090d322110d87912eefe89871784b1754d0707fdb917be5d88d3809",
-                "03756937d33d028eea274a3154775b2bffd076ffcc4a23fe0f9080f8b7fa0dab5b",
-                "03d8359823a91736cb7aecfaf756872daf258084133c9dd25b96ab3643707c38ca",
-                "03589ed6ded1a1aa92d6ad38bead13e4ad8ba24c60ca6ed8a8efc6e154e3f60add",
-                "0356965753f77a9c0e33ca7cc47fd43ce7f99b60334308ad3c11eed3665de79a78",
-                "031112eb033ebacb635754a2b7163c68270c9171c40f271e70e37b22a2590d3c18");
+    protected List<String> getPubKeyList() { //lolen
+        return List.of("0273890424fff5cb39eea47820130b59d9f18711680a201dfe13e1af332da7b48f"/*,
+                "0360455d3cffe00ef73cc1284c84eedacc8c5c3374c43f4aac8ffb95f5130b9ef5",
+                "03b0513afbb531bc4551b379eba027feddd33c92b5990fd477b0fa6eff90a5b7db",
+                "03533fd75fda29c351298e50b8ea696656dcb8ce4e263d10618c6901a50450bf0e",
+                "028124436482aa4c61a4bc4097d60c80b09f4285413be3b023a37a0164cbd5d818",
+                "0384fcf883116d8e9469720ed7808cc4141f6dc6a5ed23d76dd48f2f5f255590d7",
+                "029bd318ecee4e212ff06a4396770d600d72e9e0c6532142a428bdb401491e9721",
+                "02e375b4b24d0a858953f7f94666667554d41f78000b9c8a301294223688b29011",
+                "0232c088ae7c070de89d2b6c8d485b34bf0e3b2a964a2c6622f39ca501260c23f7",
+                "033e047f74f2aa1ce41e8c85731f97ab83d448d65dc8518ab3df4474a5d53a3d19",
+                "02f52a8cf373c8cbddb318e523b7f111168bf753fdfb6f8aa81f88c950ede3a5ce",
+                "039784029922c54bcd0f0e7f14530f586053a5f4e596e86b3474cd7404657088ae",
+                "037969f9d5ab2cc609104c6e61323df55428f8f108c11aab7c7b5f953081d39304",
+                "031bd37475b8c5615ac46d6816e791c59d806d72a0bc6739ae94e5fe4545c7f8a6",
+                "021bb92c636feacf5b082313eb071a63dfcd26501a48b3cd248e35438e5afb7daf"*/);
     }
+
 
     @Override
     protected boolean isExpectedInstance(ProtectedStorageEntry data) {

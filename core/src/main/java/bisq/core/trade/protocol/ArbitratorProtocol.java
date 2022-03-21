@@ -53,10 +53,10 @@ public class ArbitratorProtocol extends DisputeProtocol {
                           errorMessageHandler.handleErrorMessage(errorMessage);
                           handleTaskRunnerFault(peer, message, errorMessage);
                       }))
-              .withTimeout(30))
+              .withTimeout(1200))
               .executeTasks();
   }
-  
+
   @Override
   public void handleInitMultisigRequest(InitMultisigRequest request, NodeAddress sender) {
     System.out.println("ArbitratorProtocol.handleInitMultisigRequest()");
@@ -75,10 +75,10 @@ public class ArbitratorProtocol extends DisputeProtocol {
                     errorMessageHandler.handleErrorMessage(errorMessage);
                     handleTaskRunnerFault(sender, request, errorMessage);
                 }))
-        .withTimeout(30))
+        .withTimeout(1200))
         .executeTasks();
   }
-  
+
   @Override
   public void handleSignContractRequest(SignContractRequest message, NodeAddress sender) {
       System.out.println("ArbitratorProtocol.handleSignContractRequest()");
@@ -98,10 +98,10 @@ public class ArbitratorProtocol extends DisputeProtocol {
                       errorMessageHandler.handleErrorMessage(errorMessage);
                       handleTaskRunnerFault(sender, message, errorMessage);
                   }))
-          .withTimeout(30))
+          .withTimeout(1200))
           .executeTasks();
   }
-  
+
   public void handleDepositRequest(DepositRequest request, NodeAddress sender) {
     System.out.println("ArbitratorProtocol.handleDepositRequest()");
     Validator.checkTradeId(processModel.getOfferId(), request);
@@ -119,7 +119,7 @@ public class ArbitratorProtocol extends DisputeProtocol {
                     errorMessageHandler.handleErrorMessage(errorMessage);
                     handleTaskRunnerFault(sender, request, errorMessage);
                 }))
-        .withTimeout(30))
+        .withTimeout(1200))
         .executeTasks();
   }
 

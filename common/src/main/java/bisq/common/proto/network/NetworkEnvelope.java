@@ -60,7 +60,7 @@ public abstract class NetworkEnvelope implements Envelope {
     public String getMessageVersion() {
         // -1 is used for the case that we use an envelope message as payload (mailbox)
         // so we check only against 0 which is the default value if not set
-        checkArgument(messageVersion.compareTo("2A") == 0 ? true : false, "messageVersion is not set (0).");
+        checkArgument(messageVersion.compareTo("0A") == 0 ? true : false, "messageVersion is not set (0).");
         return messageVersion;
     }
 

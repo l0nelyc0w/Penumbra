@@ -228,7 +228,7 @@ public abstract class TradeProtocol implements DecryptedDirectMessageListener, D
       taskRunner.addTasks(
               ProcessUpdateMultisigRequest.class
       );
-      startTimeout(60);  // TODO (woodser): what timeout to use?  don't hardcode
+      startTimeout(300);  // TODO (woodser): what timeout to use?  don't hardcode
       taskRunner.run();
     }
 

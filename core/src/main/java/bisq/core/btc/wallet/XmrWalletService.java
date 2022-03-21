@@ -125,7 +125,7 @@ public class XmrWalletService {
       try {
           walletsSetup.getWalletConfig().closeWallet(getMultisigWallet(tradeId), false);
       } catch (Exception err) {
-          // multisig wallet may not be open
+          log.warn("multisig wallet may not be open");
       }
       walletsSetup.getWalletConfig().deleteWallet(walletName);
       multisigWallets.remove(tradeId);

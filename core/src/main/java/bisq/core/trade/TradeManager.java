@@ -1028,7 +1028,11 @@ public class TradeManager implements PersistedDataHost, DecryptedDirectMessageLi
             }
 
             p2PService.removeDecryptedDirectMessageListener(getTradeProtocol(trade));
-            xmrWalletService.deleteMultisigWallet(trade.getId());
+            try {
+                xmrWalletService.deleteMultisigWallet(trade.getId());
+            } catch (Error e){
+                log.warn("Failed to delete multisig");
+            }
             requestPersistence();
         }
     }

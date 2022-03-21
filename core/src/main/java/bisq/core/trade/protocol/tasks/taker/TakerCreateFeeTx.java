@@ -50,7 +50,7 @@ public class TakerCreateFeeTx extends TradeTask {
       String id = processModel.getOffer().getId();
       XmrAddressEntry reservedForTradeAddressEntry = walletService.getOrCreateAddressEntry(id, XmrAddressEntry.Context.RESERVED_FOR_TRADE);
       TradeWalletService tradeWalletService = processModel.getTradeWalletService();
-      String feeReceiver = "52FnB7ABUrKJzVQRpbMNrqDFWbcKLjFUq8Rgek7jZEuB6WE2ZggXaTf4FK6H8gQymvSrruHHrEuKhMN3qTMiBYzREKsmRKM"; // TODO (woodser): don't hardcode //lolen
+      String feeReceiver = "42sjRNZYxcyWK3Bd3e6MNaR8zmjNrze8W5fDjttJ152WPReFUj5ung4fw7y73DTtFXjVRGSkonjW5J5XvUXub2xEV3ufoK4"; // TODO (woodser): don't hardcode //lolen
 
       // pay trade fee to reserve trade
       MoneroTxWallet tx = tradeWalletService.createXmrTradingFeeTx(
