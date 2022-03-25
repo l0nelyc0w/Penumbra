@@ -5,19 +5,19 @@ build: nodes localnet haveno
 clean:
 	./gradlew clean
 
-clean-localnet:
-	rm -rf .localnet
+#clean-localnet:
+#	rm -rf .localnet
 
 localnet:
 	mkdir -p .localnet
 
-nodes: localnet
-	./scripts/haveno_deps.sh
+#nodes: localnet
+#	./scripts/haveno_deps.sh
 
-haveno:
+penumbra:
 	./gradlew build
 
-haveno-apps: # quick build desktop and daemon apps without tests, etc
+penumbra-apps: # quick build desktop and daemon apps without tests, etc
 	./gradlew :core:compileJava :desktop:build
 
 deploy:
@@ -35,7 +35,31 @@ deploy:
 	# give bitcoind rpc server time to start
 	sleep 5
 
+deploy-local:
+	# create a new screen session named 'localnet'
+	screen -dmS localnet
+	# deploy each node in its own named screen window
+	for target in \
+		seednode-local \
+		alice-desktop-local \
+		bob-desktop-local \
+		arbitrator-desktop-local; do \
+			screen -S localnet -X screen -t $$target; \
+			screen -S localnet -p $$target -X stuff "make $$target\n"; \
+		done;
+	# give bitcoind rpc server time to start
+	sleep 5
+
 seednode:
+	./haveno-seednode \
+		--baseCurrencyNetwork=XMR_MAINNET \
+		--useLocalhostForP2P=false \
+		--useDevPrivilegeKeys=false \
+		--seedNodes=5keoulw5wjxpujo5egboikc6bfmdtqooidx7ead3hwd3wk4ofairfxqd.onion:2002 \
+		--nodePort=2002 \
+		--appName=penumbra-seed \
+
+seednode-local:
 	./haveno-seednode \
 		--baseCurrencyNetwork=XMR_STAGENET \
 		--useLocalhostForP2P=true \
@@ -43,9 +67,22 @@ seednode:
 		--nodePort=2002 \
 		--appName=haveno-XMR_STAGENET_Seed_2002 \
 
+
 arbitrator-desktop:
 	# Arbitrator and mediator need to be registerd in the UI after launching it.
 	./haveno-desktop \
+		--baseCurrencyNetwork=XMR_MAINNET \
+		--useLocalhostForP2P=false \
+		--useDevPrivilegeKeys=false \
+		--seedNodes=5keoulw5wjxpujo5egboikc6bfmdtqooidx7ead3hwd3wk4ofairfxqd.onion:2002 \
+		--nodePort=4444 \
+		--appName=penumbra-arbitrator \
+		--apiPassword=apitest \
+		--apiPort=9998
+
+#arbitrator-desktop-local:
+#	# Arbitrator and mediator need to be registerd in the UI after launching it.
+#	./haveno-desktop \
 		--baseCurrencyNetwork=XMR_STAGENET \
 		--useLocalhostForP2P=true \
 		--useDevPrivilegeKeys=true \
@@ -54,7 +91,20 @@ arbitrator-desktop:
 		--apiPassword=apitest \
 		--apiPort=9998
 
+
 arbitrator-daemon:
+	# Arbitrator and mediator need to be registerd in the UI before launching the daemon.
+	./haveno-daemon \
+		--baseCurrencyNetwork=XMR_MAINNET \
+		--useLocalhostForP2P=false \
+		--useDevPrivilegeKeys=false \
+		--seedNodes=5keoulw5wjxpujo5egboikc6bfmdtqooidx7ead3hwd3wk4ofairfxqd.onion:2002 \
+		--nodePort=4444 \
+		--appName=penumbra-arbitrator \
+		--apiPassword=apitest \
+		--apiPort=9998
+
+arbitrator-daemon-local:
 	# Arbitrator and mediator need to be registerd in the UI before launching the daemon.
 	./haveno-daemon \
 		--baseCurrencyNetwork=XMR_STAGENET \
@@ -65,18 +115,20 @@ arbitrator-daemon:
 		--apiPassword=apitest \
 		--apiPort=9998
 
-arbitrator-desktop2:
-	# Arbitrator and mediator need to be registerd in the UI after launching it.
-	./haveno-desktop \
-		--baseCurrencyNetwork=XMR_STAGENET \
-		--useLocalhostForP2P=true \
-		--useDevPrivilegeKeys=true \
-		--nodePort=7777 \
-		--appName=haveno-XMR_STAGENET_arbitrator2 \
-		--apiPassword=apitest \
-		--apiPort=10001
 
 alice-desktop:
+	./haveno-desktop \
+		--baseCurrencyNetwork=XMR_MAINNET \
+        --useLocalhostForP2P=false \
+        --useDevPrivilegeKeys=false \
+        --seedNodes=5keoulw5wjxpujo5egboikc6bfmdtqooidx7ead3hwd3wk4ofairfxqd.onion:2002 \
+		--nodePort=5555 \
+		--appName=penumbra-alice \
+		--apiPassword=apitest \
+		--apiPort=9999 \
+		--walletRpcBindPort=38091
+
+alice-desktop-local:
 	./haveno-desktop \
 		--baseCurrencyNetwork=XMR_STAGENET \
 		--useLocalhostForP2P=true \
@@ -89,6 +141,18 @@ alice-desktop:
 
 alice-daemon:
 	./haveno-daemon \
+		--baseCurrencyNetwork=XMR_MAINNET \
+        --useLocalhostForP2P=false \
+        --useDevPrivilegeKeys=false \
+        --seedNodes=5keoulw5wjxpujo5egboikc6bfmdtqooidx7ead3hwd3wk4ofairfxqd.onion:2002 \
+		--nodePort=5555 \
+		--appName=penumbra-alice \
+		--apiPassword=apitest \
+		--apiPort=9999 \
+		--walletRpcBindPort=38091
+
+alice-daemon-local:
+	./haveno-daemon \
 		--baseCurrencyNetwork=XMR_STAGENET \
 		--useLocalhostForP2P=true \
 		--useDevPrivilegeKeys=true \
@@ -98,7 +162,20 @@ alice-daemon:
 		--apiPort=9999 \
 		--walletRpcBindPort=38091
 
+
 bob-desktop:
+	./haveno-desktop \
+		--baseCurrencyNetwork=XMR_MAINNET \
+        --useLocalhostForP2P=false \
+        --useDevPrivilegeKeys=false \
+        --seedNodes=5keoulw5wjxpujo5egboikc6bfmdtqooidx7ead3hwd3wk4ofairfxqd.onion:2002 \
+		--nodePort=6666 \
+		--appName=penumbra-bob \
+		--apiPassword=apitest \
+		--apiPort=10000 \
+		--walletRpcBindPort=38092
+
+bob-desktop-local:
 	./haveno-desktop \
 		--baseCurrencyNetwork=XMR_STAGENET \
 		--useLocalhostForP2P=true \
@@ -111,6 +188,18 @@ bob-desktop:
 
 bob-daemon:
 	./haveno-daemon \
+		--baseCurrencyNetwork=XMR_MAINNET \
+        --useLocalhostForP2P=false \
+        --useDevPrivilegeKeys=false \
+        --seedNodes=5keoulw5wjxpujo5egboikc6bfmdtqooidx7ead3hwd3wk4ofairfxqd.onion:2002 \
+		--nodePort=6666 \
+		--appName=penumbra-bob \
+		--apiPassword=apitest \
+		--apiPort=10000 \
+		--walletRpcBindPort=38092
+
+bob-daemon-local:
+	./haveno-daemon \
 		--baseCurrencyNetwork=XMR_STAGENET \
 		--useLocalhostForP2P=true \
 		--useDevPrivilegeKeys=true \
@@ -120,8 +209,8 @@ bob-daemon:
 		--apiPort=10000 \
 		--walletRpcBindPort=38092
 
-monero-shared:
-	./.localnet/monerod \
+#monero-shared:
+#	./.localnet/monerod \
 		--stagenet \
 		--no-igd \
 		--hide-my-port \
@@ -131,8 +220,8 @@ monero-shared:
 		--rpc-access-control-origins http://localhost:8080 \
 		--fixed-difficulty 100
 
-monero-private1:
-	./.localnet/monerod \
+#monero-private1:
+#	./.localnet/monerod \
 		--stagenet \
 		--no-igd \
 		--hide-my-port \
@@ -146,8 +235,8 @@ monero-private1:
 		--rpc-access-control-origins http://localhost:8080 \
 		--fixed-difficulty 100
 
-monero-private2:
-	./.localnet/monerod \
+#monero-private2:
+#	./.localnet/monerod \
 		--stagenet \
 		--no-igd \
 		--hide-my-port \
@@ -159,9 +248,9 @@ monero-private2:
 		--rpc-login superuser:abctesting123 \
 		--rpc-access-control-origins http://localhost:8080 \
 		--fixed-difficulty 100
-		
-funding-wallet:
-	./.localnet/monero-wallet-rpc \
+
+#funding-wallet:
+#	./.localnet/monero-wallet-rpc \
 		--stagenet \
 		--daemon-address http://localhost:38081 \
 		--daemon-login superuser:abctesting123 \
@@ -170,19 +259,5 @@ funding-wallet:
 		--rpc-access-control-origins http://localhost:8080 \
 		--wallet-dir ./.localnet
 
-bitcoind:
-	./.localnet/bitcoind \
-		-regtest \
-		-peerbloomfilters=1 \
-		-datadir=.localnet/ \
-		-rpcuser=haveno \
-		-rpcpassword=1234
-
-btc-blocks:
-	./.localnet/bitcoin-cli \
-		-regtest \
-		-rpcuser=haveno \
-		-rpcpassword=1234 \
-		generatetoaddress 101 bcrt1q6j90vywv8x7eyevcnn2tn2wrlg3vsjlsvt46qz
 
 .PHONY: build seednode localnet
