@@ -100,6 +100,9 @@ public class Config {
     public static final String IGNORE_LOCAL_BTC_NODE = "ignoreLocalBtcNode";
     public static final String BITCOIN_REGTEST_HOST = "bitcoinRegtestHost";
     public static final String BTC_NODES = "btcNodes";
+    public static final String DAEMON_ADDRESS = "daemonAddress";
+    public static final String DAEMON_USERNAME = "daemonUsername";
+    public static final String DAEMON_PASSWORD = "daemonPassword";
     public static final String SOCKS5_DISCOVER_MODE = "socks5DiscoverMode";
     public static final String USE_ALL_PROVIDED_NODES = "useAllProvidedNodes";
     public static final String USER_AGENT = "userAgent";
@@ -190,6 +193,9 @@ public class Config {
     public final boolean preventPeriodicShutdownAtSeedNode;
     public final boolean republishMailboxEntries;
     public final boolean bypassMempoolValidation;
+    public final String daemonAddress;
+    public final String daemonUsername;
+    public final String daemonPassword;
 
     // Properties derived from options but not exposed as options themselves
     public final File torDir;
@@ -534,6 +540,25 @@ public class Config {
                         .ofType(int.class)
                         .defaultsTo(DEFAULT_NUM_CONNECTIONS_FOR_BTC);
 
+
+        ArgumentAcceptingOptionSpec<String> daemonAddressOpt =
+                parser.accepts(DAEMON_ADDRESS, "Address and port of Monero daemon")
+                        .withRequiredArg()
+                        .ofType(String.class)
+                        .defaultsTo("http://127.0.0.1:18081");
+
+        ArgumentAcceptingOptionSpec<String> daemonUsernameOpt =
+                parser.accepts(DAEMON_USERNAME, "Username of Monero daemon")
+                        .withRequiredArg()
+                        .ofType(String.class)
+                        .defaultsTo("");
+
+        ArgumentAcceptingOptionSpec<String> daemonPasswordOpt =
+                parser.accepts(DAEMON_PASSWORD, "Password of Monero daemon")
+                        .withRequiredArg()
+                        .ofType(String.class)
+                        .defaultsTo("");
+
         ArgumentAcceptingOptionSpec<Boolean> dumpDelayedPayoutTxsOpt =
                 parser.accepts(DUMP_DELAYED_PAYOUT_TXS, "Dump delayed payout transactions to file")
                         .withRequiredArg()
@@ -678,7 +703,9 @@ public class Config {
             this.useAllProvidedNodes = options.valueOf(useAllProvidedNodesOpt);
             this.userAgent = options.valueOf(userAgentOpt);
             this.numConnectionsForBtc = options.valueOf(numConnectionsForBtcOpt);
-
+            this.daemonAddress = options.valueOf(daemonAddressOpt);
+            this.daemonUsername = options.valueOf(daemonUsernameOpt);
+            this.daemonPassword = options.valueOf(daemonPasswordOpt);
             this.dumpDelayedPayoutTxs = options.valueOf(dumpDelayedPayoutTxsOpt);
             this.allowFaultyDelayedTxs = options.valueOf(allowFaultyDelayedTxsOpt);
             this.apiPassword = options.valueOf(apiPasswordOpt);

@@ -345,8 +345,8 @@ public class WalletConfig extends AbstractIdleService {
           MONERO_WALLET_RPC_PATH,
           //"--" + MONERO_NETWORK_TYPE.toString().toLowerCase(),
           //"--daemon-address", connection.getUri(),
-          "--daemon-address", "http://127.0.0.1:18081",
-          //"--daemon-login", "username:password",
+          "--daemon-address", config.daemonAddress,
+          "--daemon-login", config.daemonUsername + ":" + config.daemonPassword,
           "--rpc-login", MONERO_WALLET_RPC_USERNAME + ":" + MONERO_WALLET_RPC_PASSWORD,
           "--wallet-dir", directory.toString()
       ));/*

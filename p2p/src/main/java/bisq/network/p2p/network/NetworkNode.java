@@ -65,7 +65,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 // Run in UserThread
 public abstract class NetworkNode implements MessageListener {
     private static final Logger log = LoggerFactory.getLogger(NetworkNode.class);
-    private static final int CREATE_SOCKET_TIMEOUT = (int) TimeUnit.SECONDS.toMillis(120);
+    private static final int CREATE_SOCKET_TIMEOUT = (int) TimeUnit.SECONDS.toMillis(1200);
 
     final int servicePort;
     private final NetworkProtoResolver networkProtoResolver;

@@ -1,6 +1,9 @@
 package bisq.core.api;
 
 import bisq.core.btc.model.EncryptedConnectionList;
+
+import bisq.common.config.Config;
+
 import java.util.Arrays;
 import java.util.List;
 import javax.inject.Inject;
@@ -16,27 +19,30 @@ public class CoreMoneroConnectionsService {
 
     // TODO: this connection manager should update app status, don't poll in WalletsSetup every 30 seconds
     private static final long DEFAULT_REFRESH_PERIOD = 15_000L; // check the connection every 15 seconds per default
+    private final Config config;
 
     // TODO (woodser): support each network type, move to config, remove localhost authentication
-    private static final List<MoneroRpcConnection> DEFAULT_CONNECTIONS = Arrays.asList(
-            new MoneroRpcConnection("http://127.0.0.1:18081", "", "").setPriority(1) // localhost is first priority
-
-    );
+    private  List<MoneroRpcConnection> DEFAULT_CONNECTIONS;
 
     private final Object lock = new Object();
     private final MoneroConnectionManager connectionManager;
     private final EncryptedConnectionList connectionList;
 
+
     @Inject
     public CoreMoneroConnectionsService(MoneroConnectionManager connectionManager,
-                                        EncryptedConnectionList connectionList) {
+                                        EncryptedConnectionList connectionList,
+                                        Config config) {
         this.connectionManager = connectionManager;
         this.connectionList = connectionList;
+        this.config = config;
+        this.DEFAULT_CONNECTIONS = Arrays.asList(
+                new MoneroRpcConnection(config.daemonAddress, config.daemonUsername, config.daemonPassword).setPriority(1)
+        );
     }
 
     public void initialize() {
         synchronized (lock) {
-
             // load connections
             connectionList.getConnections().forEach(connectionManager::addConnection);
 
@@ -45,6 +51,8 @@ public class CoreMoneroConnectionsService {
                 if (connectionList.hasConnection(connection.getUri())) continue;
                 addConnection(connection);
             }
+
+
 
             // restore last used connection
             connectionList.getCurrentConnectionUri().ifPresentOrElse(connectionManager::setConnection, () -> {
