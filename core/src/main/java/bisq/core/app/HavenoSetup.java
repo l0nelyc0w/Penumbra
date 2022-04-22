@@ -346,7 +346,7 @@ public class HavenoSetup {
         String postFix = "_" + config.baseCurrencyNetwork.name();
         p2PService.getP2PDataStorage().readFromResources(postFix, completeHandler);
     }
-
+    // TODO: remove wallet
     private void startP2pNetworkAndWallet(Runnable nextStep) {
         ChangeListener<Boolean> walletInitializedListener = (observable, oldValue, newValue) -> {
             // TODO that seems to be called too often if Tor takes longer to start up...
@@ -355,7 +355,7 @@ public class HavenoSetup {
         };
 
         Timer startupTimeout = UserThread.runAfter(() -> {
-            if (p2PNetworkSetup.p2pNetworkFailed.get() || walletsSetup.walletsSetupFailed.get()) {
+            if (p2PNetworkSetup.p2pNetworkFailed.get()) {// || walletsSetup.walletsSetupFailed.get()) {
                 // Skip this timeout action if the p2p network or wallet setup failed
                 // since an error prompt will be shown containing the error message
                 return;

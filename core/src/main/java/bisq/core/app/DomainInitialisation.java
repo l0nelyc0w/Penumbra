@@ -192,7 +192,7 @@ public class DomainInitialisation {
 
         openOfferManager.onAllServicesInitialized();
 
-        balances.onAllServicesInitialized();
+        //balances.onAllServicesInitialized();
 
         walletAppSetup.setRejectedTxErrorMessageHandler(rejectedTxErrorMessageHandler, openOfferManager, tradeManager);
 

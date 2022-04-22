@@ -66,19 +66,19 @@ public class XmrWalletService {
     this.multisigWallets = new HashMap<String, MoneroWallet>();
 
     walletsSetup.addSetupCompletedHandler(() -> {
-        wallet = walletsSetup.getXmrWallet();
-        wallet.addListener(new MoneroWalletListener() {
-            @Override
-            public void onSyncProgress(long height, long startHeight, long endHeight, double percentDone, String message) { }
-
-            @Override
-            public void onNewBlock(long height) { }
-
-            @Override
-            public void onBalancesChanged(BigInteger newBalance, BigInteger newUnlockedBalance) {
-              notifyBalanceListeners();
-            }
-        });
+//        wallet = walletsSetup.getXmrWallet();
+//        wallet.addListener(new MoneroWalletListener() {
+//            @Override
+//            public void onSyncProgress(long height, long startHeight, long endHeight, double percentDone, String message) { }
+//
+//            @Override
+//            public void onNewBlock(long height) { }
+//
+//            @Override
+//            public void onBalancesChanged(BigInteger newBalance, BigInteger newUnlockedBalance) {
+//              notifyBalanceListeners();
+//            }
+//        });
 
         walletsSetup.getMoneroConnectionsManager().addConnectionListener(newConnection -> {
             updateDaemonConnections(newConnection);

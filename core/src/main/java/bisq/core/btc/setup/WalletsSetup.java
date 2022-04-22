@@ -248,7 +248,7 @@ public class WalletsSetup {
                 UserThread.execute(() -> {
                     updateDaemonInfo();
                     addressEntryList.onWalletReady(walletConfig.btcWallet());
-                    xmrAddressEntryList.onWalletReady(walletConfig.getXmrWallet());
+                    //xmrAddressEntryList.onWalletReady(walletConfig.getXmrWallet());
                     timeoutTimer.stop();
                     setupCompletedHandlers.forEach(Runnable::run);
                 });
