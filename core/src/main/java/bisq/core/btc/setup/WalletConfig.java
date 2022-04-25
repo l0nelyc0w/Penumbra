@@ -402,7 +402,7 @@ public class WalletConfig extends AbstractIdleService {
 ////            vXmrWallet.rescanSpent();
 ////            vXmrWallet.rescanBlockchain();
 //            vXmrWallet.sync(); // blocking
-//            downloadListener.doneDownload();
+            downloadListener.doneDownload();
 //            vXmrWallet.save();
 //            System.out.println("Loaded wallet balance: " + vXmrWallet.getBalance(0));
 //            System.out.println("Loaded wallet unlocked balance: " + vXmrWallet.getUnlockedBalance(0));

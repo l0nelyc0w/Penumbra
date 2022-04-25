@@ -288,12 +288,12 @@ public class TradeManager implements PersistedDataHost, DecryptedDirectMessageLi
         getObservableList().addListener((ListChangeListener<Trade>) change -> onTradesChanged());
         onTradesChanged();
 
-        xmrWalletService.getAddressEntriesForAvailableBalanceStream()
-                .filter(addressEntry -> addressEntry.getOfferId() != null)
-                .forEach(addressEntry -> {
-                    log.warn("Swapping pending OFFER_FUNDING entries at startup. offerId={}", addressEntry.getOfferId());
-                    xmrWalletService.swapTradeEntryToAvailableEntry(addressEntry.getOfferId(), XmrAddressEntry.Context.OFFER_FUNDING);
-                });
+//        xmrWalletService.getAddressEntriesForAvailableBalanceStream()
+//                .filter(addressEntry -> addressEntry.getOfferId() != null)
+//                .forEach(addressEntry -> {
+//                    log.warn("Swapping pending OFFER_FUNDING entries at startup. offerId={}", addressEntry.getOfferId());
+//                    xmrWalletService.swapTradeEntryToAvailableEntry(addressEntry.getOfferId(), XmrAddressEntry.Context.OFFER_FUNDING);
+//                });
     }
 
     public TradeProtocol getTradeProtocol(Trade trade) {

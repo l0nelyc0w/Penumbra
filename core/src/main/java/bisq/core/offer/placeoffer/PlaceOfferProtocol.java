@@ -19,6 +19,7 @@ package bisq.core.offer.placeoffer;
 
 import bisq.core.offer.messages.SignOfferResponse;
 import bisq.core.offer.placeoffer.tasks.AddToOfferBook;
+import bisq.core.offer.placeoffer.tasks.AddToPendingOffers;
 import bisq.core.offer.placeoffer.tasks.MakerReservesTradeFunds;
 import bisq.core.offer.placeoffer.tasks.MakerSendsSignOfferRequest;
 import bisq.core.offer.placeoffer.tasks.MakerProcessesSignOfferResponse;
@@ -71,6 +72,7 @@ public class PlaceOfferProtocol {
         );
         taskRunner.addTasks(
                 ValidateOffer.class,
+                AddToPendingOffers.class,
                 MakerReservesTradeFunds.class,
                 MakerSendsSignOfferRequest.class
         );

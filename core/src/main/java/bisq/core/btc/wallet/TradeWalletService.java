@@ -113,7 +113,7 @@ public class TradeWalletService {
         walletsSetup.addSetupCompletedHandler(() -> {
             walletConfig = walletsSetup.getWalletConfig();
             wallet = walletsSetup.getBtcWallet();
-            xmrWallet = walletsSetup.getXmrWallet();
+            //xmrWallet = walletsSetup.getXmrWallet();
         });
     }
 

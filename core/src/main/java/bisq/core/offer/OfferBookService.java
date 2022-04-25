@@ -62,9 +62,16 @@ public class OfferBookService {
         void onRemoved(Offer offer);
     }
 
+    public interface PendingOfferBookChangedListener {
+        void onAdded(Offer offer);
+
+        void onRemoved(Offer offer);
+    }
+
     private final P2PService p2PService;
     private final PriceFeedService priceFeedService;
     private final List<OfferBookChangedListener> offerBookChangedListeners = new LinkedList<>();
+    private final List<PendingOfferBookChangedListener> pendingOfferBookChangedListeners = new LinkedList<>();
     private final FilterManager filterManager;
     private final JsonFileManager jsonFileManager;
 
@@ -150,6 +157,20 @@ public class OfferBookService {
         }
     }
 
+    public void addPendingOffer(Offer offer, ResultHandler resultHandler, ErrorMessageHandler errorMessageHandler) {
+        if (filterManager.requireUpdateToNewVersionForTrading()) {
+            errorMessageHandler.handleErrorMessage(Res.get("popup.warning.mandatoryUpdate.trading"));
+            return;
+        }
+
+        boolean result = p2PService.addProtectedStorageEntry(offer.getOfferPayload());
+        if (result) {
+            resultHandler.handleResult();
+        } else {
+            errorMessageHandler.handleErrorMessage("Add offer failed");
+        }
+    }
+
     public void refreshTTL(OfferPayload offerPayload,
                            ResultHandler resultHandler,
                            ErrorMessageHandler errorMessageHandler) {
@@ -202,6 +223,18 @@ public class OfferBookService {
                 .collect(Collectors.toList());
     }
 
+    public List<Offer> getPendingOffers() {
+        return p2PService.getDataMap().values().stream()
+                .filter(data -> data.getProtectedStoragePayload() instanceof OfferPayload)
+                .map(data -> {
+                    OfferPayload offerPayload = (OfferPayload) data.getProtectedStoragePayload();
+                    Offer offer = new Offer(offerPayload);
+                    offer.setPriceFeedService(priceFeedService);
+                    return offer;
+                })
+                .collect(Collectors.toList());
+    }
+
     public void removeOfferAtShutDown(OfferPayload offerPayload) {
         removeOffer(offerPayload, null, null);
     }
@@ -213,6 +246,11 @@ public class OfferBookService {
     public void addOfferBookChangedListener(OfferBookChangedListener offerBookChangedListener) {
         offerBookChangedListeners.add(offerBookChangedListener);
     }
+
+    public void addPendingOfferBookChangedListener(PendingOfferBookChangedListener pendingOfferBookChangedListener) {
+        pendingOfferBookChangedListeners.add(pendingOfferBookChangedListener);
+    }
+
 
 
     ///////////////////////////////////////////////////////////////////////////////////////////

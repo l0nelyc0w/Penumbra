@@ -14,7 +14,10 @@ import org.bitcoinj.core.InsufficientMoneyException;
 
 import javax.inject.Inject;
 
+import monero.common.MoneroUtils;
 import com.google.common.util.concurrent.FutureCallback;
+
+import org.bouncycastle.jcajce.provider.asymmetric.ec.KeyFactorySpi;
 
 import java.math.BigInteger;
 
@@ -53,9 +56,11 @@ public class XmrWalletService {
   protected final CopyOnWriteArraySet<XmrBalanceListener> balanceListeners = new CopyOnWriteArraySet<>();
   protected final CopyOnWriteArraySet<MoneroWalletListenerI> walletListeners = new CopyOnWriteArraySet<>();
   private Map<String, MoneroWallet> multisigWallets;
+  private Map<String, MoneroWallet> offerWallets;
 
   @Getter
   private MoneroWallet wallet;
+
 
   @Inject
   XmrWalletService(WalletsSetup walletsSetup,
@@ -64,22 +69,30 @@ public class XmrWalletService {
 
     this.addressEntryList = addressEntryList;
     this.multisigWallets = new HashMap<String, MoneroWallet>();
+    this.offerWallets = new HashMap<String, MoneroWallet>();
 
     walletsSetup.addSetupCompletedHandler(() -> {
-//        wallet = walletsSetup.getXmrWallet();
-//        wallet.addListener(new MoneroWalletListener() {
-//            @Override
-//            public void onSyncProgress(long height, long startHeight, long endHeight, double percentDone, String message) { }
-//
-//            @Override
-//            public void onNewBlock(long height) { }
-//
-//            @Override
-//            public void onBalancesChanged(BigInteger newBalance, BigInteger newUnlockedBalance) {
-//              notifyBalanceListeners();
-//            }
-//        });
+        if (wallet != null) {
+            wallet = walletsSetup.getXmrWallet();
+            wallet.addListener(new MoneroWalletListener() {
+                @Override
+                public void onSyncProgress(long height,
+                                           long startHeight,
+                                           long endHeight,
+                                           double percentDone,
+                                           String message) {
+                }
 
+                @Override
+                public void onNewBlock(long height) {
+                }
+
+                @Override
+                public void onBalancesChanged(BigInteger newBalance, BigInteger newUnlockedBalance) {
+                    notifyBalanceListeners();
+                }
+            });
+        }
         walletsSetup.getMoneroConnectionsManager().addConnectionListener(newConnection -> {
             updateDaemonConnections(newConnection);
         });
@@ -106,6 +119,19 @@ public class XmrWalletService {
       return multisigWallet;
   }
 
+    public synchronized MoneroWallet createOfferWallet(String offerId) {
+        if (offerWallets.containsKey(offerId)) return offerWallets.get(offerId);
+        String path = "xmr_offer_" + offerId;
+        MoneroWallet offerWallet = null;
+        offerWallet = walletsSetup.getWalletConfig().createWallet(new MoneroWalletConfig()
+                        .setPath(path)
+                        .setPassword("abctesting123"),
+                null); // auto-assign port
+        offerWallets.put(offerId, offerWallet);
+        offerWallet.startSyncing(5000l);
+        return offerWallet;
+    }
+
   public synchronized MoneroWallet getMultisigWallet(String tradeId) {
       if (multisigWallets.containsKey(tradeId)) return multisigWallets.get(tradeId);
       String path = "xmr_multisig_trade_" + tradeId;
@@ -118,6 +144,22 @@ public class XmrWalletService {
       multisigWallet.startSyncing(5000l); // TODO (woodser): use sync period from config. apps stall if too many multisig wallets and too short sync period
       return multisigWallet;
   }
+
+    public synchronized MoneroWallet getOfferWallet(String offerId) {
+        if (offerWallets.containsKey(offerId)) return offerWallets.get(offerId);
+        String path = "xmr_offer_" + offerId;
+        MoneroWallet offerWallet = null;
+        if (MoneroUtils.walletExists(path)) {
+            offerWallet = walletsSetup.getWalletConfig().openWallet(new MoneroWalletConfig()
+                            .setPath(path)
+                            .setPassword("abctesting123"),
+                    null);
+        }
+        else { offerWallet = createOfferWallet(offerId); }
+        offerWallets.put(offerId, offerWallet);
+        offerWallet.startSyncing(5000l); // TODO (woodser): use sync period from config. apps stall if too many multisig wallets and too short sync period
+        return offerWallet;
+    }
 
   public synchronized boolean deleteMultisigWallet(String tradeId) {
       String walletName = "xmr_multisig_trade_" + tradeId;
@@ -140,8 +182,8 @@ public class XmrWalletService {
   }
 
   public XmrAddressEntry getNewAddressEntry(String offerId, XmrAddressEntry.Context context) {
-      MoneroSubaddress subaddress = wallet.createSubaddress(0);
-      XmrAddressEntry entry = new XmrAddressEntry(subaddress.getIndex(), subaddress.getAddress(), context, offerId, null);
+      wallet = getOfferWallet(offerId);
+      XmrAddressEntry entry = new XmrAddressEntry(0,  wallet.getPrimaryAddress(), context, offerId, null);
       addressEntryList.addAddressEntry(entry);
       return entry;
   }
@@ -264,6 +306,15 @@ public class XmrWalletService {
     return Coin.valueOf(balance.longValueExact());
   }
 
+    public Coin getBalanceForWallet(String offerId) {
+
+        // get subaddress balance
+        wallet = getOfferWallet(offerId);
+        BigInteger balance = wallet.getBalance(0);
+        System.out.println("Returning balance for wallet " + wallet.getPrimaryAddress() + ": " + balance.longValueExact());
+
+        return Coin.valueOf(balance.longValueExact());
+    }
 
   public Coin getAvailableConfirmedBalance() {
     return wallet != null ? Coin.valueOf(wallet.getUnlockedBalance(0).longValueExact()) : Coin.ZERO;

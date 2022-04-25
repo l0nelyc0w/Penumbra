@@ -64,17 +64,20 @@ public abstract class OfferDataModel extends ActivatableDataModel {
         this.offerUtil = offerUtil;
     }
 
-    protected void updateBalance() {
-        Coin tradeWalletBalance = xmrWalletService.getBalanceForSubaddress(addressEntry.getSubaddressIndex());
-        if (useSavingsWallet) {
-            Coin savingWalletBalance = xmrWalletService.getSavingWalletBalance();
-            totalAvailableBalance = savingWalletBalance.add(tradeWalletBalance);
-            if (totalToPayAsCoin.get() != null) {
-                balance.set(minCoin(totalToPayAsCoin.get(), totalAvailableBalance));
-            }
-        } else {
-            balance.set(tradeWalletBalance);
-        }
+    protected void updateBalance(String offerId) {
+        //offerWallet = xmrWalletService.getOfferWallet(offerId);
+        //offerWallet.getBalance();
+        //Coin tradeWalletBalance = xmrWalletService.getBalanceForSubaddress(addressEntry.getSubaddressIndex());
+        Coin offerWalletBalance = xmrWalletService.getBalanceForWallet(offerId);
+        //if (useSavingsWallet) {
+        //    Coin savingWalletBalance = xmrWalletService.getSavingWalletBalance();
+        //    totalAvailableBalance = savingWalletBalance.add(tradeWalletBalance);
+        //    if (totalToPayAsCoin.get() != null) {
+        //        balance.set(minCoin(totalToPayAsCoin.get(), totalAvailableBalance));
+        //    }
+        //} else {
+        balance.set(offerWalletBalance);
+        //}
         missingCoin.set(offerUtil.getBalanceShortage(totalToPayAsCoin.get(), balance.get()));
         isBtcWalletFunded.set(offerUtil.isBalanceSufficient(totalToPayAsCoin.get(), balance.get()));
         if (totalToPayAsCoin.get() != null && isBtcWalletFunded.get() && !showWalletFundedNotification.get()) {

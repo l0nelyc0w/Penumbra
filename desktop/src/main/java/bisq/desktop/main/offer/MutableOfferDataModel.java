@@ -178,6 +178,8 @@ public abstract class MutableOfferDataModel extends OfferDataModel {
 
         offerId = createOfferService.getRandomOfferId();
         shortOfferId = Utilities.getShortId(offerId);
+        //offerWallet = xmrWalletService.createMultisigWallet(offerId);
+        //offerWallet = xmrWalletService.createOfferWallet(offerId);
         addressEntry = xmrWalletService.getOrCreateAddressEntry(offerId, XmrAddressEntry.Context.OFFER_FUNDING);
 
         useMarketBasedPrice.set(preferences.isUsePercentageBasedPrice());
@@ -186,7 +188,7 @@ public abstract class MutableOfferDataModel extends OfferDataModel {
         xmrBalanceListener = new XmrBalanceListener(getAddressEntry().getSubaddressIndex()) {
             @Override
             public void onBalanceChanged(BigInteger balance) {
-                updateBalance();
+                updateBalance(offerId);
             }
         };
 
@@ -200,7 +202,7 @@ public abstract class MutableOfferDataModel extends OfferDataModel {
         if (isTabSelected)
             priceFeedService.setCurrencyCode(tradeCurrencyCode.get());
 
-        updateBalance();
+        updateBalance(offerId);
     }
 
     @Override
@@ -269,7 +271,7 @@ public abstract class MutableOfferDataModel extends OfferDataModel {
 
         calculateVolume();
         calculateTotalToPay();
-        updateBalance();
+        updateBalance(offerId);
         setSuggestedSecurityDeposit(getPaymentAccount());
 
         return true;
@@ -419,10 +421,10 @@ public abstract class MutableOfferDataModel extends OfferDataModel {
 
     void fundFromSavingsWallet() {
         this.useSavingsWallet = true;
-        updateBalance();
+        updateBalance(offerId);
         if (!isBtcWalletFunded.get()) {
             this.useSavingsWallet = false;
-            updateBalance();
+            updateBalance(offerId);
         }
     }
 
@@ -521,7 +523,7 @@ public abstract class MutableOfferDataModel extends OfferDataModel {
             }
         }
 
-        updateBalance();
+        updateBalance(offerId);
     }
 
     void calculateMinVolume() {
@@ -577,7 +579,7 @@ public abstract class MutableOfferDataModel extends OfferDataModel {
             feeAndSecDeposit = feeAndSecDeposit.add(makerFee);
             Coin total = isBuyOffer() ? feeAndSecDeposit : feeAndSecDeposit.add(amount.get());
             totalToPayAsCoin.set(total);
-            updateBalance();
+            updateBalance(offerId);
         }
     }
 

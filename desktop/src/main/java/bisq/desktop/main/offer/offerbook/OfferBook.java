@@ -49,6 +49,7 @@ import static bisq.core.offer.OfferPayload.Direction.BUY;
 public class OfferBook {
     private final OfferBookService offerBookService;
     private final ObservableList<OfferBookListItem> offerBookListItems = FXCollections.observableArrayList();
+    private final ObservableList<OfferBookListItem> pendingOfferBookListItems = FXCollections.observableArrayList();
     private final Map<String, Integer> buyOfferCountMap = new HashMap<>();
     private final Map<String, Integer> sellOfferCountMap = new HashMap<>();
     private final FilterManager filterManager;
@@ -101,6 +102,46 @@ public class OfferBook {
                 removeOffer(offer, tradeManager);
             }
         });
+
+        offerBookService.addPendingOfferBookChangedListener(new OfferBookService.PendingOfferBookChangedListener() {
+            @Override
+            public void onAdded(Offer offer) {
+                // We get onAdded called every time a new ProtectedStorageEntry is received.
+                // Mostly it is the same OfferPayload but the ProtectedStorageEntry is different.
+                // We filter here to only add new offers if the same offer (using equals) was not already added and it
+                // is not banned.
+
+                if (filterManager.isOfferIdBanned(offer.getId())) {
+                    log.debug("Ignored banned offer. ID={}", offer.getId());
+                    return;
+                }
+
+                boolean hasSameOffer = pendingOfferBookListItems.stream()
+                        .anyMatch(item -> item.getOffer().equals(offer));
+                if (!hasSameOffer) {
+                    PendingOfferBookListItem pendingOfferBookListItem = new PendingOfferBookListItem(offer);
+                    // We don't use the contains method as the equals method in Offer takes state and errorMessage into account.
+                    // If we have an offer with same ID we remove it and add the new offer as it might have a changed state.
+                    Optional<PendingOfferBookListItem> candidateWithSameId = pendingOfferBookListItems.stream()
+                            .filter(item -> item.getOffer().getId().equals(offer.getId()))
+                            .findAny();
+                    if (candidateWithSameId.isPresent()) {
+                        log.warn("We had an old offer in the list with the same Offer ID {}. We remove the old one. " +
+                                "old offerBookListItem={}, new offerBookListItem={}", offer.getId(), candidateWithSameId.get(), pendingOfferBookListItem);
+                        pendingOfferBookListItems.remove(candidateWithSameId.get());
+                    }
+
+                    pendingOfferBookListItems.add(pendingOfferBookListItem);
+                } else {
+                    log.debug("We have the exact same offer already in our list and ignore the onAdded call. ID={}", offer.getId());
+                }
+            }
+
+            @Override
+            public void onRemoved(Offer offer) {
+                removeOffer(offer, tradeManager);
+            }
+        });
     }
 
     public void removeOffer(Offer offer, TradeManager tradeManager) {
@@ -119,6 +160,9 @@ public class OfferBook {
         return offerBookListItems;
     }
 
+    public ObservableList<OfferBookListItem> getPendingOfferBookListItems() {
+        return pendingOfferBookListItems;
+    }
     public void fillOfferBookListItems() {
         try {
             // setAll causes sometimes an UnsupportedOperationException

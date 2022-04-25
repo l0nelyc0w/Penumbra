@@ -126,6 +126,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
     private final Map<String, OpenOffer> offersToBeEdited = new HashMap<>();
     private final TradableList<OpenOffer> openOffers = new TradableList<>();
     private final SignedOfferList signedOffers = new SignedOfferList();
+    private final SignedOfferList pendingOffers = new SignedOfferList();
     private final PersistenceManager<SignedOfferList> signedOfferPersistenceManager;
     private final Map<String, PlaceOfferProtocol> placeOfferProtocols = new HashMap<String, PlaceOfferProtocol>();
     private boolean stopped;
@@ -156,6 +157,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                             MediatorManager mediatorManager,
                             FilterManager filterManager,
                             Broadcaster broadcaster,
+                            PersistenceManager<Offer> pendingOfferPersistenceManager,
                             PersistenceManager<TradableList<OpenOffer>> persistenceManager,
                             PersistenceManager<SignedOfferList> signedOfferPersistenceManager) {
         this.coreContext = coreContext;
@@ -176,10 +178,12 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
         this.filterManager = filterManager;
         this.broadcaster = broadcaster;
         this.persistenceManager = persistenceManager;
+        this.pendingOfferPersistenceManager = pendingOfferPersistenceManager;
         this.signedOfferPersistenceManager = signedOfferPersistenceManager;
 
         this.persistenceManager.initialize(openOffers, "OpenOffers", PersistenceManager.Source.PRIVATE);
         this.signedOfferPersistenceManager.initialize(signedOffers, "SignedOffers", PersistenceManager.Source.PRIVATE); // arbitrator stores reserve tx for signed offers
+        this.pendingOfferPersistenceManager.initialize(pendingOffers, "PendingOffers", PersistenceManager.Source.PRIVATE);
     }
 
     @Override
@@ -198,6 +202,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                     completeHandler);
                 },
                 completeHandler);
+
     }
 
     public void onAllServicesInitialized() {
