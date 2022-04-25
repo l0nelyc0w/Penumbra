@@ -72,10 +72,10 @@ class PendingOffersDataModel extends ActivatableDataModel {
     private void applyList() {
         list.clear();
 
-        list.addAll(openOfferManager.getObservableList().stream().map(PendingOfferListItem::new).collect(Collectors.toList()));
+        //list.addAll(openOfferManager.getObservableList().stream().map(PendingOfferListItem::new).collect(Collectors.toList()));
 
         // we sort by date, earliest first
-        list.sort((o1, o2) -> o2.getOffer().getDate().compareTo(o1.getOffer().getDate()));
+        //list.sort((o1, o2) -> o2.getOffer().getDate().compareTo(o1.getOffer().getDate()));
     }
 
 //    boolean wasTriggered(Offer pendingOffer) {
