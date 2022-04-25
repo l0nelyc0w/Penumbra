@@ -117,7 +117,7 @@ public class WalletsSetup {
     @Getter
     public final BooleanProperty walletsSetupFailed = new SimpleBooleanProperty();
 
-    private static final long STARTUP_TIMEOUT = 180;
+    private static final long STARTUP_TIMEOUT = 1800;
     private static final String SPV_CHAIN_FILE_NAME = "haveno.spvchain";
 
     private final RegTestHost regTestHost;
