@@ -18,6 +18,8 @@
 package bisq.core.offer;
 
 import bisq.core.api.CoreContext;
+import bisq.core.btc.model.XmrAddressEntry;
+import bisq.core.btc.model.XmrAddressEntryList;
 import bisq.core.btc.wallet.BtcWalletService;
 import bisq.core.btc.wallet.TradeWalletService;
 import bisq.core.btc.wallet.XmrWalletService;
@@ -126,6 +128,8 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
     private final Map<String, OpenOffer> offersToBeEdited = new HashMap<>();
     private final TradableList<OpenOffer> openOffers = new TradableList<>();
     private final SignedOfferList signedOffers = new SignedOfferList();
+
+    //private final PersistenceManager<XmrAddressEntryList> pendingOfferPersistentManager;
     private final PersistenceManager<SignedOfferList> signedOfferPersistenceManager;
     private final Map<String, PlaceOfferProtocol> placeOfferProtocols = new HashMap<String, PlaceOfferProtocol>();
     private boolean stopped;
@@ -156,6 +160,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                             MediatorManager mediatorManager,
                             FilterManager filterManager,
                             Broadcaster broadcaster,
+                            //PersistenceManager<XmrAddressEntryList> pendingOfferPersistenceManager,
                             PersistenceManager<TradableList<OpenOffer>> persistenceManager,
                             PersistenceManager<SignedOfferList> signedOfferPersistenceManager) {
         this.coreContext = coreContext;
@@ -198,6 +203,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                     completeHandler);
                 },
                 completeHandler);
+
     }
 
     public void onAllServicesInitialized() {
@@ -608,6 +614,10 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
         return openOffers.getObservableList();
     }
 
+    public List<XmrAddressEntry> getXmrAddressEntryList() {
+        return xmrWalletService.getAddressEntryListAsImmutableList();
+    }
+
     public Optional<OpenOffer> getOpenOfferById(String offerId) {
         return openOffers.stream().filter(e -> e.getId().equals(offerId)).findFirst();
     }
@@ -670,7 +680,6 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                     request.getReserveTxKeyImages(),
                     true);
 
-            // arbitrator signs offer to certify they have valid reserve tx
             String offerPayloadAsJson = Utilities.objectToJson(request.getOfferPayload());
             String signature = Sig.sign(keyRing.getSignatureKeyPair().getPrivate(), offerPayloadAsJson);
             OfferPayload signedOfferPayload = request.getOfferPayload();
