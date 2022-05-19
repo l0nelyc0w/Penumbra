@@ -86,21 +86,21 @@ public class BuyerCreateAndSignPayoutTx extends TradeTask {
                     .setAccountIndex(0)
                     .addDestination(buyerPayoutAddress, buyerPayoutAmount.multiply(BigInteger.valueOf(4)).divide(BigInteger.valueOf(5))) // reduce payment amount to compute fee of similar tx
                     .addDestination(sellerPayoutAddress, sellerPayoutAmount.multiply(BigInteger.valueOf(4)).divide(BigInteger.valueOf(5)))
-                    .setRelay(false)
+                    .setRelay(true)
             );
 
             // attempt to create payout tx by increasing estimated fee until successful
             MoneroTxWallet payoutTx = null;
             int numAttempts = 0;
             while (payoutTx == null && numAttempts < 50) {
-              BigInteger feeEstimate = feeEstimateTx.getFee().add(feeEstimateTx.getFee().multiply(BigInteger.valueOf(numAttempts)).divide(BigInteger.valueOf(10))); // add 1/10 of fee until tx is successful
+              BigInteger feeEstimate = new BigInteger("1000000000");
               try {
                 numAttempts++;
                 payoutTx = multisigWallet.createTx(new MoneroTxConfig()
                         .setAccountIndex(0)
                         .addDestination(new MoneroDestination(buyerPayoutAddress, buyerPayoutAmount.subtract(feeEstimate.divide(BigInteger.valueOf(2))))) // split fee subtracted from each payout amount
                         .addDestination(new MoneroDestination(sellerPayoutAddress, sellerPayoutAmount.subtract(feeEstimate.divide(BigInteger.valueOf(2))))) // TODO (woodser): support addDestination(addr, amt) without new
-                        .setRelay(false));
+                        .setRelay(true));
               } catch (MoneroError e) {
                 //e.printStackTrace();
                 //System.out.println("FAILED TO CREATE PAYOUT TX, ITERATING...");

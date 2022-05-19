@@ -375,7 +375,7 @@ public class XmrWalletService {
             MoneroTxWallet tx = wallet.createTx(new MoneroTxConfig()
                     .setAccountIndex(0)
                     .setDestinations(destinations)
-                    .setRelay(false)
+                    .setRelay(true)
                     .setCanSplit(false));
             printTxs("XmrWalletService.createTx", tx);
             return tx;

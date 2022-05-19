@@ -59,7 +59,7 @@ public class TakerCreateFeeTx extends TradeTask {
               trade.getTakerFee(),
               trade.getTxFee(),
               feeReceiver,
-              false);
+              true);
 
       trade.setTakerFeeTxId(tx.getHash());
       processModel.setTakeOfferFeeTx(tx);
