@@ -31,6 +31,7 @@ import bisq.desktop.main.portfolio.failedtrades.FailedTradesView;
 import bisq.desktop.main.portfolio.openoffer.OpenOffersView;
 import bisq.desktop.main.portfolio.pendingtrades.PendingTradesView;
 import bisq.desktop.main.portfolio.pendingoffer.PendingOffersView;
+import bisq.desktop.main.portfolio.transactions.TransactionsView;
 
 
 import bisq.core.locale.Res;
@@ -59,7 +60,7 @@ import javax.annotation.Nullable;
 public class PortfolioView extends ActivatableView<TabPane, Void> {
 
     @FXML
-    Tab pendingOffersTab, openOffersTab, pendingTradesTab, closedTradesTab;
+    Tab pendingOffersTab, openOffersTab, pendingTradesTab, closedTradesTab, transactionsTab;
     private Tab editOpenOfferTab, duplicateOfferTab;
     private final Tab failedTradesTab = new Tab(Res.get("portfolio.tab.failed").toUpperCase());
     private Tab currentTab;
@@ -78,6 +79,8 @@ public class PortfolioView extends ActivatableView<TabPane, Void> {
     private Offer pendingOffer;
     private OpenOffersView openOffersView;
     private PendingOffersView pendingOffersView;
+    private TransactionsView transactionsView;
+
 
     @Inject
     public PortfolioView(CachingViewLoader viewLoader, Navigation navigation, FailedTradesManager failedTradesManager) {
@@ -91,6 +94,7 @@ public class PortfolioView extends ActivatableView<TabPane, Void> {
         root.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
         failedTradesTab.setClosable(false);
 
+        transactionsTab.setText(Res.get("portfolio.tab.transactions").toUpperCase());
         pendingOffersTab.setText(Res.get("portfolio.tab.pendingOffers").toUpperCase());
         openOffersTab.setText(Res.get("portfolio.tab.openOffers").toUpperCase());
         pendingTradesTab.setText(Res.get("portfolio.tab.pendingTrades").toUpperCase());
@@ -106,6 +110,8 @@ public class PortfolioView extends ActivatableView<TabPane, Void> {
                 navigation.navigateTo(MainView.class, PortfolioView.class, OpenOffersView.class);
             else if (newValue == pendingOffersTab)
                 navigation.navigateTo(MainView.class, PortfolioView.class, PendingOffersView.class);
+            else if (newValue == transactionsTab)
+                navigation.navigateTo(MainView.class, PortfolioView.class, TransactionsView.class);
             else if (newValue == pendingTradesTab)
                 navigation.navigateTo(MainView.class, PortfolioView.class, PendingTradesView.class);
             else if (newValue == closedTradesTab)
@@ -173,6 +179,8 @@ public class PortfolioView extends ActivatableView<TabPane, Void> {
             navigation.navigateTo(MainView.class, PortfolioView.class, PendingTradesView.class);
         else if (root.getSelectionModel().getSelectedItem() == pendingOffersTab)
             navigation.navigateTo(MainView.class, PortfolioView.class, PendingOffersView.class);
+        else if (root.getSelectionModel().getSelectedItem() == transactionsTab)
+            navigation.navigateTo(MainView.class, PortfolioView.class, TransactionsView.class);
         else if (root.getSelectionModel().getSelectedItem() == closedTradesTab)
             navigation.navigateTo(MainView.class, PortfolioView.class, ClosedTradesView.class);
         else if (root.getSelectionModel().getSelectedItem() == failedTradesTab)
@@ -204,6 +212,8 @@ public class PortfolioView extends ActivatableView<TabPane, Void> {
 
         if (view instanceof OpenOffersView) {
             selectOpenOffersView((OpenOffersView) view);
+        } else if (view instanceof TransactionsView) {
+            currentTab = transactionsTab;
         } else if (view instanceof PendingTradesView) {
             currentTab = pendingTradesTab;
         } else if (view instanceof PendingOffersView) {

@@ -760,6 +760,7 @@ public abstract class Trade implements Tradable, Model {
     @Nullable
     public MoneroTxWallet getTakerDepositTx() {
         String depositTxHash = getProcessModel().getTaker().getDepositTxHash();
+
         try {
             if (takerDepositTx == null) takerDepositTx = depositTxHash == null ? null : xmrWalletService.getMultisigWallet(getId()).getTx(depositTxHash);
             return takerDepositTx;

@@ -108,6 +108,8 @@ public class MakerSendsSignOfferRequest extends Task<PlaceOfferModel> {
                 public void onFault(String errorMessage) {
                     log.error("Sending {} failed: uid={}; peer={}; error={}", request.getClass().getSimpleName(), arbitrator.getNodeAddress(), offer.getId(), errorMessage);
                     appendToErrorMessage("Sending message failed: message=" + request + "\nerrorMessage=" + errorMessage);
+                    //log.error("Unfreezing reserveTx for offerId={}", offer.getId());
+                    //model.getXmrWalletService().getWallet().thawOutput(model.getReserveTx().getKey());
                     failed();
                 }
               });
@@ -115,6 +117,9 @@ public class MakerSendsSignOfferRequest extends Task<PlaceOfferModel> {
             offer.setErrorMessage("An error occurred.\n" +
                 "Error message:\n"
                 + t.getMessage());
+
+            //log.error("Unfreezing reserveTx for offerId={}", offer.getId());
+            //model.getXmrWalletService().getWallet().thawOutput(model.getReserveTx().getKey());
             failed(t);
         }
     }

@@ -98,9 +98,8 @@ public class PendingOffersView extends ActivatableViewAndModel<VBox, PendingOffe
     @FXML
     TableView<XmrAddressEntry> tableView;
     @FXML
-    TableColumn<XmrAddressEntry, XmrAddressEntry> contextColumn, addressColumn, lockedInMultiColumn, priceColumn, deviationColumn, amountColumn, volumeColumn,
-            marketColumn, directionColumn, dateColumn, offerIdColumn, deactivateItemColumn,
-            removeItemColumn, editItemColumn, triggerPriceColumn, triggerIconColumn, paymentMethodColumn;
+    TableColumn<XmrAddressEntry, XmrAddressEntry> contextColumn, addressColumn, lockedInMultiColumn, dateColumn, offerIdColumn, deactivateItemColumn,
+            removeItemColumn, editItemColumn;
     @FXML
     HBox searchBox;
     @FXML
@@ -136,17 +135,8 @@ public class PendingOffersView extends ActivatableViewAndModel<VBox, PendingOffe
     @Override
     public void initialize() {
         widthListener = (observable, oldValue, newValue) -> onWidthChange((double) newValue);
-        paymentMethodColumn.setGraphic(new AutoTooltipLabel(Res.get("shared.paymentMethod")));
-        priceColumn.setGraphic(new AutoTooltipLabel(Res.get("shared.price")));
-        deviationColumn.setGraphic(new AutoTooltipTableColumn<>(Res.get("shared.deviation"),
-                Res.get("portfolio.closedTrades.deviation.help")).getGraphic());
-        amountColumn.setGraphic(new AutoTooltipLabel(Res.get("shared.BTCMinMax")));
-        volumeColumn.setGraphic(new AutoTooltipLabel(Res.get("shared.amountMinMax")));
-        marketColumn.setGraphic(new AutoTooltipLabel(Res.get("shared.market")));
-        directionColumn.setGraphic(new AutoTooltipLabel(Res.get("shared.offerType")));
         dateColumn.setGraphic(new AutoTooltipLabel(Res.get("shared.dateTime")));
         offerIdColumn.setGraphic(new AutoTooltipLabel(Res.get("shared.offerId")));
-        triggerPriceColumn.setGraphic(new AutoTooltipLabel(Res.get("openOffer.header.triggerPrice")));
         deactivateItemColumn.setGraphic(new AutoTooltipLabel(Res.get("shared.enabled")));
         editItemColumn.setGraphic(new AutoTooltipLabel(""));
         removeItemColumn.setGraphic(new AutoTooltipLabel(""));
@@ -157,19 +147,6 @@ public class PendingOffersView extends ActivatableViewAndModel<VBox, PendingOffe
 
 
         setOfferIdColumnCellFactory();
-//        setDirectionColumnCellFactory();
-//        setMarketColumnCellFactory();
-//        setPriceColumnCellFactory();
-//        setDeviationColumnCellFactory();
-//        setAmountColumnCellFactory();
-//        setVolumeColumnCellFactory();
-//        setPaymentMethodColumnCellFactory();
-//        setDateColumnCellFactory();
-//        setDeactivateColumnCellFactory();
-//        setEditColumnCellFactory();
-//        setTriggerIconColumnCellFactory();
-//        setTriggerPriceColumnCellFactory();
-//        setRemoveColumnCellFactory();
         setContextColumnCellFactory();
         setAddressColumnCellFactory();
         setLockedInMultiColumnCellFactory();
@@ -178,16 +155,6 @@ public class PendingOffersView extends ActivatableViewAndModel<VBox, PendingOffe
         tableView.setPlaceholder(new AutoTooltipLabel(Res.get("table.placeholder.noItems", Res.get("shared.openOffers"))));
 
         offerIdColumn.setComparator(Comparator.comparing(o -> o.getOfferId()));
-//        directionColumn.setComparator(Comparator.comparing(o -> o.getOffer().getDirection()));
-//        marketColumn.setComparator(Comparator.comparing(model::getMarketLabel));
-//        amountColumn.setComparator(Comparator.comparing(o -> o.getOffer().getAmount()));
-//        priceColumn.setComparator(Comparator.comparing(o -> o.getOffer().getPrice(), Comparator.nullsFirst(Comparator.naturalOrder())));
-//        deviationColumn.setComparator(Comparator.comparing(model::getPriceDeviationAsDouble, Comparator.nullsFirst(Comparator.naturalOrder())));
-//        //triggerPriceColumn.setComparator(Comparator.comparing(o -> o.getOffer().getTriggerPrice(),
-//        //        Comparator.nullsFirst(Comparator.naturalOrder())));
-//        volumeColumn.setComparator(Comparator.comparing(o -> o.getOffer().getVolume(), Comparator.nullsFirst(Comparator.naturalOrder())));
-//        dateColumn.setComparator(Comparator.comparing(o -> o.getOffer().getDate()));
-//        paymentMethodColumn.setComparator(Comparator.comparing(o -> Res.get(o.getOffer().getPaymentMethod().getId())));
 
 //        contextColumn.setComparator(Comparator.comparing(o -> o.getContext().toString()));
 //       addressColumn.setComparator(Comparator.comparing(o -> o.getAddressString()));
@@ -338,6 +305,7 @@ public class PendingOffersView extends ActivatableViewAndModel<VBox, PendingOffe
                 return true;
 
             String offerId = item.getOfferId();
+            if (offerId == null){ offerId = "null";}
             if (offerId.contains(filterString)) {
                 return true;
             }
@@ -373,7 +341,7 @@ public class PendingOffersView extends ActivatableViewAndModel<VBox, PendingOffe
     }
 
     private void onWidthChange(double width) {
-        triggerPriceColumn.setVisible(width > 1200);
+        contextColumn.setVisible(width > 1200);
     }
 
 

@@ -99,6 +99,10 @@ import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+
+
+import monero.wallet.model.MoneroTxWallet;
+
 public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMessageListener, PersistedDataHost {
     private static final Logger log = LoggerFactory.getLogger(OpenOfferManager.class);
 
@@ -433,6 +437,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
 
         placeOfferProtocols.put(offer.getId(), placeOfferProtocol);
         placeOfferProtocol.placeOffer(); // TODO (woodser): if error placing offer (e.g. bad signature), remove protocol and unfreeze trade funds
+        //catch (Exception e){ placeOfferProtocols.remove(offer.getId(), placeOfferProtocol); }
     }
 
     // Remove from offerbook
@@ -616,6 +621,10 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
 
     public List<XmrAddressEntry> getXmrAddressEntryList() {
         return xmrWalletService.getAddressEntryListAsImmutableList();
+    }
+
+    public List<MoneroTxWallet> getTransactions() {
+        return xmrWalletService.getTransactions(true);
     }
 
     public Optional<OpenOffer> getOpenOfferById(String offerId) {
