@@ -95,7 +95,7 @@ public class SellerAsTakerProtocol extends SellerProtocol implements TakerProtoc
               .using(new TradeTaskRunner(trade,
                       () -> { },
                       errorMessageHandler))
-              .withTimeout(1200))
+              .withTimeout(3600))
               .executeTasks();
     }
 
@@ -124,7 +124,7 @@ public class SellerAsTakerProtocol extends SellerProtocol implements TakerProtoc
                           handleTaskRunnerFault(sender, request, errorMessage);
                           errorMessageHandler.handleErrorMessage(errorMessage);
                       }))
-              .withTimeout(1200))
+              .withTimeout(3600))
               .executeTasks();
     }
 
@@ -147,7 +147,7 @@ public class SellerAsTakerProtocol extends SellerProtocol implements TakerProtoc
                             errorMessageHandler.handleErrorMessage(errorMessage);
                             handleTaskRunnerFault(sender, message, errorMessage);
                         }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -170,7 +170,7 @@ public class SellerAsTakerProtocol extends SellerProtocol implements TakerProtoc
                             errorMessageHandler.handleErrorMessage(errorMessage);
                             handleTaskRunnerFault(sender, message, errorMessage);
                         }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -193,7 +193,7 @@ public class SellerAsTakerProtocol extends SellerProtocol implements TakerProtoc
                             errorMessageHandler.handleErrorMessage(errorMessage);
                             handleTaskRunnerFault(sender, response, errorMessage);
                         }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -218,7 +218,7 @@ public class SellerAsTakerProtocol extends SellerProtocol implements TakerProtoc
                             errorMessageHandler.handleErrorMessage(errorMessage);
                             handleTaskRunnerFault(sender, request, errorMessage);
                         }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -284,7 +284,7 @@ public class SellerAsTakerProtocol extends SellerProtocol implements TakerProtoc
                         SellerCreatesDelayedPayoutTx.class,
                         SellerSignsDelayedPayoutTx.class,
                         SellerSendDelayedPayoutTxSignatureRequest.class)
-                        .withTimeout(1200))
+                        .withTimeout(3600))
                 .executeTasks();
     }
 }

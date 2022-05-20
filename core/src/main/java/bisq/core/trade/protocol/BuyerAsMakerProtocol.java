@@ -91,7 +91,7 @@ public class BuyerAsMakerProtocol extends BuyerProtocol implements MakerProtocol
                             errorMessageHandler.handleErrorMessage(errorMessage);
                             handleTaskRunnerFault(peer, message, errorMessage);
                         }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -114,7 +114,7 @@ public class BuyerAsMakerProtocol extends BuyerProtocol implements MakerProtocol
                       errorMessageHandler.handleErrorMessage(errorMessage);
                       handleTaskRunnerFault(sender, request, errorMessage);
                   }))
-              .withTimeout(1200))
+              .withTimeout(3600))
               .executeTasks();
     }
 
@@ -137,7 +137,7 @@ public class BuyerAsMakerProtocol extends BuyerProtocol implements MakerProtocol
                         errorMessageHandler.handleErrorMessage(errorMessage);
                         handleTaskRunnerFault(sender, message, errorMessage);
                     }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -160,7 +160,7 @@ public class BuyerAsMakerProtocol extends BuyerProtocol implements MakerProtocol
                         errorMessageHandler.handleErrorMessage(errorMessage);
                         handleTaskRunnerFault(sender, message, errorMessage);
                     }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -183,7 +183,7 @@ public class BuyerAsMakerProtocol extends BuyerProtocol implements MakerProtocol
                         errorMessageHandler.handleErrorMessage(errorMessage);
                         handleTaskRunnerFault(sender, response, errorMessage);
                     }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -208,7 +208,7 @@ public class BuyerAsMakerProtocol extends BuyerProtocol implements MakerProtocol
                         errorMessageHandler.handleErrorMessage(errorMessage);
                         handleTaskRunnerFault(sender, request, errorMessage);
                     }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -255,7 +255,7 @@ public class BuyerAsMakerProtocol extends BuyerProtocol implements MakerProtocol
                         BuyerSignsDelayedPayoutTx.class,
                         BuyerFinalizesDelayedPayoutTx.class,
                         BuyerSendsDelayedPayoutTxSignatureResponse.class)
-                        .withTimeout(1200))
+                        .withTimeout(3600))
                 .executeTasks();
     }
 

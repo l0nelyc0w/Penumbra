@@ -102,7 +102,7 @@ public class BuyerAsTakerProtocol extends BuyerProtocol implements TakerProtocol
               .using(new TradeTaskRunner(trade,
                       () -> { },
                       errorMessageHandler))
-              .withTimeout(1200))
+              .withTimeout(3600))
               .executeTasks();
     }
 
@@ -131,7 +131,7 @@ public class BuyerAsTakerProtocol extends BuyerProtocol implements TakerProtocol
                           errorMessageHandler.handleErrorMessage(errorMessage);
                           handleTaskRunnerFault(sender, request, errorMessage);
                       }))
-              .withTimeout(1200))
+              .withTimeout(3600))
               .executeTasks();
     }
 
@@ -154,7 +154,7 @@ public class BuyerAsTakerProtocol extends BuyerProtocol implements TakerProtocol
                             errorMessageHandler.handleErrorMessage(errorMessage);
                             handleTaskRunnerFault(sender, message, errorMessage);
                         }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -177,7 +177,7 @@ public class BuyerAsTakerProtocol extends BuyerProtocol implements TakerProtocol
                             errorMessageHandler.handleErrorMessage(errorMessage);
                             handleTaskRunnerFault(sender, message, errorMessage);
                         }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -200,7 +200,7 @@ public class BuyerAsTakerProtocol extends BuyerProtocol implements TakerProtocol
                             errorMessageHandler.handleErrorMessage(errorMessage);
                             handleTaskRunnerFault(sender, response, errorMessage);
                         }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -225,7 +225,7 @@ public class BuyerAsTakerProtocol extends BuyerProtocol implements TakerProtocol
                             errorMessageHandler.handleErrorMessage(errorMessage);
                             handleTaskRunnerFault(sender, request, errorMessage);
                         }))
-                .withTimeout(1200))
+                .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -285,7 +285,7 @@ public class BuyerAsTakerProtocol extends BuyerProtocol implements TakerProtocol
                         BuyerAsTakerSignsDepositTx.class,
                         BuyerSetupDepositTxListener.class,
                         BuyerAsTakerSendsDepositTxMessage.class)
-                        .withTimeout(1200))
+                        .withTimeout(3600))
                 .executeTasks();
     }
 
@@ -300,7 +300,7 @@ public class BuyerAsTakerProtocol extends BuyerProtocol implements TakerProtocol
                         BuyerSignsDelayedPayoutTx.class,
                         BuyerFinalizesDelayedPayoutTx.class,
                         BuyerSendsDelayedPayoutTxSignatureResponse.class)
-                        .withTimeout(1200))
+                        .withTimeout(3600))
                 .executeTasks();
     }
 

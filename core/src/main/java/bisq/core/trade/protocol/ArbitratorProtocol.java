@@ -53,7 +53,7 @@ public class ArbitratorProtocol extends DisputeProtocol {
                           errorMessageHandler.handleErrorMessage(errorMessage);
                           handleTaskRunnerFault(peer, message, errorMessage);
                       }))
-              .withTimeout(1200))
+              .withTimeout(3600))
               .executeTasks();
   }
 
@@ -75,7 +75,7 @@ public class ArbitratorProtocol extends DisputeProtocol {
                     errorMessageHandler.handleErrorMessage(errorMessage);
                     handleTaskRunnerFault(sender, request, errorMessage);
                 }))
-        .withTimeout(1200))
+        .withTimeout(3600))
         .executeTasks();
   }
 
@@ -98,7 +98,7 @@ public class ArbitratorProtocol extends DisputeProtocol {
                       errorMessageHandler.handleErrorMessage(errorMessage);
                       handleTaskRunnerFault(sender, message, errorMessage);
                   }))
-          .withTimeout(1200))
+          .withTimeout(3600))
           .executeTasks();
   }
 
@@ -119,7 +119,7 @@ public class ArbitratorProtocol extends DisputeProtocol {
                     errorMessageHandler.handleErrorMessage(errorMessage);
                     handleTaskRunnerFault(sender, request, errorMessage);
                 }))
-        .withTimeout(1200))
+        .withTimeout(3600))
         .executeTasks();
   }
 

@@ -82,12 +82,13 @@ public class BuyerCreateAndSignPayoutTx extends TradeTask {
 
             // create transaction to get fee estimate
             if (multisigWallet.isMultisigImportNeeded()) throw new RuntimeException("Multisig import is still needed!!!");
+            /*
             MoneroTxWallet feeEstimateTx = multisigWallet.createTx(new MoneroTxConfig()
                     .setAccountIndex(0)
                     .addDestination(buyerPayoutAddress, buyerPayoutAmount.multiply(BigInteger.valueOf(4)).divide(BigInteger.valueOf(5))) // reduce payment amount to compute fee of similar tx
                     .addDestination(sellerPayoutAddress, sellerPayoutAmount.multiply(BigInteger.valueOf(4)).divide(BigInteger.valueOf(5)))
-                    .setRelay(true)
-            );
+                    .setRelay(false)
+            );*/
 
             // attempt to create payout tx by increasing estimated fee until successful
             MoneroTxWallet payoutTx = null;
@@ -100,7 +101,7 @@ public class BuyerCreateAndSignPayoutTx extends TradeTask {
                         .setAccountIndex(0)
                         .addDestination(new MoneroDestination(buyerPayoutAddress, buyerPayoutAmount.subtract(feeEstimate.divide(BigInteger.valueOf(2))))) // split fee subtracted from each payout amount
                         .addDestination(new MoneroDestination(sellerPayoutAddress, sellerPayoutAmount.subtract(feeEstimate.divide(BigInteger.valueOf(2))))) // TODO (woodser): support addDestination(addr, amt) without new
-                        .setRelay(true));
+                        .setRelay(false));
               } catch (MoneroError e) {
                 //e.printStackTrace();
                 //System.out.println("FAILED TO CREATE PAYOUT TX, ITERATING...");
