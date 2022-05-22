@@ -1155,9 +1155,8 @@ public abstract class MutableOfferView<M extends MutableOfferViewModel<?>> exten
 
     @NotNull
     private String getBitcoinURI() {
-        return "TODO";  // TODO (woodser): wallet.createPaymentUri();
-//        return GUIUtil.getBitcoinURI(addressTextField.getAddress(), model.getDataModel().getMissingCoin().get(),
-//                model.getPaymentLabel());
+        //return "TODO";  // TODO (woodser): wallet.createPaymentUri();
+        return addressTextField.getAddress().toString();
     }
 
     private void addAmountPriceFields() {

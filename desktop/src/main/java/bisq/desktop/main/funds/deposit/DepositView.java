@@ -174,7 +174,7 @@ public class DepositView extends ActivatableView<VBox, Void> {
         Tooltip.install(qrCodeImageView, new Tooltip(Res.get("shared.openLargeQRWindow")));
         qrCodeImageView.setOnMouseClicked(e -> GUIUtil.showFeeInfoBeforeExecute(
                 () -> UserThread.runAfter(
-                        () -> new QRCodeWindow(getBitcoinURI()).show(),
+                        () -> new QRCodeWindow(addressColumn.getText()).show(),
                         200, TimeUnit.MILLISECONDS)));
         GridPane.setRowIndex(qrCodeImageView, gridRow);
         GridPane.setRowSpan(qrCodeImageView, 4);
