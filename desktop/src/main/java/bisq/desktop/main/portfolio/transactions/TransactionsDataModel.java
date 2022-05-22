@@ -35,7 +35,12 @@ import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 
 
+import java.util.stream.Collectors;
 
+
+
+import monero.wallet.model.MoneroOutputQuery;
+import monero.wallet.model.MoneroOutputWallet;
 import monero.wallet.model.MoneroTxWallet;
 
 class TransactionsDataModel extends ActivatableDataModel {
@@ -43,7 +48,7 @@ class TransactionsDataModel extends ActivatableDataModel {
     private final PriceFeedService priceFeedService;
 
     private final ObservableList<MoneroTxWallet> list = FXCollections.observableArrayList();
-    private final ListChangeListener<MoneroTxWallet> pendingOfferListChangeListener;
+    private final ListChangeListener<MoneroTxWallet> transactionsListChangeListener;
     //private final ChangeListener<Number> currenciesUpdateFlagPropertyListener;
 
     @Inject
@@ -51,7 +56,10 @@ class TransactionsDataModel extends ActivatableDataModel {
         this.openOfferManager = openOfferManager;
         this.priceFeedService = priceFeedService;
 
-        pendingOfferListChangeListener = change -> applyList();
+
+        transactionsListChangeListener = change -> applyList();
+        openOfferManager.getTransactions().addListener(transactionsListChangeListener);
+        applyList();
         //currenciesUpdateFlagPropertyListener = (observable, oldValue, newValue) -> applyList();
     }
 
@@ -63,6 +71,10 @@ class TransactionsDataModel extends ActivatableDataModel {
 
     void onRemovePendingOffer(Offer pendingOffer, ResultHandler resultHandler, ErrorMessageHandler errorMessageHandler) {
         //openOfferManager.removePendingOffer(pendingOffer, resultHandler, errorMessageHandler);
+    }
+
+    public ObservableList<MoneroOutputWallet> getFrozen() {
+        return FXCollections.observableArrayList(openOfferManager.getFrozen());
     }
 
     public ObservableList<MoneroTxWallet> getList() {
@@ -77,8 +89,8 @@ class TransactionsDataModel extends ActivatableDataModel {
     private void applyList() {
         list.clear();
 
-        //list.addAll(openOfferManager.getObservableList().stream().map(PendingOfferListItem::new).collect(Collectors.toList()));
-        list.addAll(openOfferManager.getTransactions());
+        list.addAll(openOfferManager.getTransactions().stream().map(MoneroTxWallet::new).collect(Collectors.toList()));
+        //list.addAll(openOfferManager.getTransactions());
 
         // we sort by date, earliest first
         //list.sort((o1, o2) -> o2.getOfferId().compareTo(o1.getOfferId()));

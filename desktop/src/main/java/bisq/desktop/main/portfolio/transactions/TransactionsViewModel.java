@@ -44,6 +44,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 
 
+import monero.wallet.model.MoneroOutputWallet;
 import monero.wallet.model.MoneroTxWallet;
 
 class TransactionsViewModel extends ActivatableWithDataModel<TransactionsDataModel> implements ViewModel {
@@ -88,6 +89,9 @@ class TransactionsViewModel extends ActivatableWithDataModel<TransactionsDataMod
         return dataModel.getList();
     }
 
+    public ObservableList<MoneroOutputWallet> getFrozen() {
+        return dataModel.getFrozen();
+    }
 //    String getOfferId(XmrAddressEntry item) {
 //        return item.getOfferId();
 //    }

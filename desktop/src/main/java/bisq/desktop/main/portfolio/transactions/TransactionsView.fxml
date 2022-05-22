@@ -54,6 +54,14 @@
             <TableColumn fx:id="removeItemColumn" minWidth="30" maxWidth="30" sortable="false"/>
         </columns>
     </TableView>
+    <AutoTooltipLabel fx:id="frozenLabel"/>
+    <TableView fx:id="tableView2" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="outputHashColumn" minWidth="350"/>
+            <TableColumn fx:id="outputColumn" minWidth="350"/>
+            <TableColumn fx:id="outputAmountColumn" minWidth="50"/>
+        </columns>
+    </TableView>
     <HBox spacing="10">
         <Label fx:id="numItems"/>
         <Region fx:id="footerSpacer"/>
