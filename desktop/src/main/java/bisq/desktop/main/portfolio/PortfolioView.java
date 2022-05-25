@@ -23,11 +23,13 @@ import bisq.desktop.common.view.CachingViewLoader;
 import bisq.desktop.common.view.FxmlView;
 import bisq.desktop.common.view.View;
 import bisq.desktop.main.MainView;
+import bisq.desktop.main.funds.deposit.DepositView;
 import bisq.desktop.main.offer.createoffer.CreateOfferView;
 import bisq.desktop.main.portfolio.closedtrades.ClosedTradesView;
 import bisq.desktop.main.portfolio.duplicateoffer.DuplicateOfferView;
 import bisq.desktop.main.portfolio.editoffer.EditOfferView;
 import bisq.desktop.main.portfolio.failedtrades.FailedTradesView;
+import bisq.desktop.main.portfolio.fund.FundView;
 import bisq.desktop.main.portfolio.openoffer.OpenOffersView;
 import bisq.desktop.main.portfolio.pendingtrades.PendingTradesView;
 import bisq.desktop.main.portfolio.pendingoffer.PendingOffersView;
@@ -60,7 +62,7 @@ import javax.annotation.Nullable;
 public class PortfolioView extends ActivatableView<TabPane, Void> {
 
     @FXML
-    Tab pendingOffersTab, openOffersTab, pendingTradesTab, closedTradesTab, transactionsTab;
+    Tab pendingOffersTab, openOffersTab, pendingTradesTab, closedTradesTab, transactionsTab, fundsTab;
     private Tab editOpenOfferTab, duplicateOfferTab;
     private final Tab failedTradesTab = new Tab(Res.get("portfolio.tab.failed").toUpperCase());
     private Tab currentTab;
@@ -94,6 +96,7 @@ public class PortfolioView extends ActivatableView<TabPane, Void> {
         root.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
         failedTradesTab.setClosable(false);
 
+        fundsTab.setText(Res.get("portfolio.tab.funds").toUpperCase());
         transactionsTab.setText(Res.get("portfolio.tab.transactions").toUpperCase());
         pendingOffersTab.setText(Res.get("portfolio.tab.pendingOffers").toUpperCase());
         openOffersTab.setText(Res.get("portfolio.tab.openOffers").toUpperCase());
@@ -110,6 +113,8 @@ public class PortfolioView extends ActivatableView<TabPane, Void> {
                 navigation.navigateTo(MainView.class, PortfolioView.class, OpenOffersView.class);
             else if (newValue == pendingOffersTab)
                 navigation.navigateTo(MainView.class, PortfolioView.class, PendingOffersView.class);
+            else if (newValue == fundsTab)
+                navigation.navigateTo(MainView.class, PortfolioView.class, FundView.class);
             else if (newValue == transactionsTab)
                 navigation.navigateTo(MainView.class, PortfolioView.class, TransactionsView.class);
             else if (newValue == pendingTradesTab)
@@ -179,6 +184,8 @@ public class PortfolioView extends ActivatableView<TabPane, Void> {
             navigation.navigateTo(MainView.class, PortfolioView.class, PendingTradesView.class);
         else if (root.getSelectionModel().getSelectedItem() == pendingOffersTab)
             navigation.navigateTo(MainView.class, PortfolioView.class, PendingOffersView.class);
+        else if (root.getSelectionModel().getSelectedItem() == fundsTab)
+            navigation.navigateTo(MainView.class, PortfolioView.class, FundView.class);
         else if (root.getSelectionModel().getSelectedItem() == transactionsTab)
             navigation.navigateTo(MainView.class, PortfolioView.class, TransactionsView.class);
         else if (root.getSelectionModel().getSelectedItem() == closedTradesTab)
@@ -212,6 +219,8 @@ public class PortfolioView extends ActivatableView<TabPane, Void> {
 
         if (view instanceof OpenOffersView) {
             selectOpenOffersView((OpenOffersView) view);
+        } else if (view instanceof FundView) {
+            currentTab = fundsTab;
         } else if (view instanceof TransactionsView) {
             currentTab = transactionsTab;
         } else if (view instanceof PendingTradesView) {

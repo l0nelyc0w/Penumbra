@@ -101,8 +101,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 
 
+import monero.wallet.MoneroWallet;
+import monero.wallet.model.MoneroDestination;
 import monero.wallet.model.MoneroOutputQuery;
 import monero.wallet.model.MoneroOutputWallet;
+import monero.wallet.model.MoneroTxConfig;
 import monero.wallet.model.MoneroTxWallet;
 
 public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMessageListener, PersistedDataHost {
@@ -625,9 +628,17 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
         return xmrWalletService.getAddressEntryListAsImmutableList();
     }
 
-//    public List<MoneroTxWallet> getTransactions() {
-//        return xmrWalletService.getTransactions(true);
-//    }
+    public void doWithdrawal(String toAddress) {
+        MoneroWallet wallet = xmrWalletService.getWallet();
+        wallet.sweepUnlocked(new MoneroTxConfig()
+                .addDestination(new MoneroDestination(toAddress))
+                .setRelay(true));
+    }
+    public String getPrimaryAddress() {
+        MoneroWallet wallet = xmrWalletService.getWallet();
+        return wallet.getPrimaryAddress();
+    }
+
     public List<MoneroOutputWallet> getFrozen(){
         List<MoneroOutputWallet> outputs = xmrWalletService.getWallet().getOutputs(new MoneroOutputQuery().setIsFrozen(true).setIsSpent(false));
         //List<MoneroOutputWallet> outputs = xmrWalletService.getWallet().getOutputs(new MoneroOutputQuery().setIsFrozen(true));
