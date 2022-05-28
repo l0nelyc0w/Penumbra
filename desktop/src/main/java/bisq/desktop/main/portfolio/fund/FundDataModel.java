@@ -58,7 +58,6 @@ class FundDataModel extends ActivatableDataModel {
     @Inject
     public FundDataModel(OpenOfferManager openOfferManager, PriceFeedService priceFeedService) {
         this.openOfferManager = openOfferManager;
-
     }
 
     public void onWithdrawRequest(String toAddress) {

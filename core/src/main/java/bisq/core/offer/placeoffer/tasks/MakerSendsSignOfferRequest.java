@@ -33,10 +33,19 @@ import bisq.network.p2p.DecryptedMessageWithPubKey;
 import bisq.network.p2p.NodeAddress;
 import bisq.network.p2p.P2PService;
 import bisq.network.p2p.SendDirectMessageListener;
+
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.UUID;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+
+
+import monero.daemon.model.MoneroOutput;
+import monero.wallet.MoneroWallet;
+import monero.wallet.model.MoneroTxWallet;
 
 public class MakerSendsSignOfferRequest extends Task<PlaceOfferModel> {
     private static final Logger log = LoggerFactory.getLogger(MakerSendsSignOfferRequest.class);
@@ -88,12 +97,12 @@ public class MakerSendsSignOfferRequest extends Task<PlaceOfferModel> {
                         offer.setState(Offer.State.OFFER_FEE_RESERVED);
                         model.getP2PService().removeDecryptedDirectMessageListener(this);
                         complete();
-                     } else {
-                         if (!failed) {
-                             failed = true;
-                             failed(ackMessage.getErrorMessage()); // TODO: (woodser): only fail once? build into task?
-                         }
-                     }
+                    } else {
+                        if (!failed) {
+                            failed = true;
+                            failed(ackMessage.getErrorMessage()); // TODO: (woodser): only fail once? build into task?
+                        }
+                    }
                 }
             };
             model.getP2PService().addDecryptedDirectMessageListener(ackListener);
@@ -108,8 +117,13 @@ public class MakerSendsSignOfferRequest extends Task<PlaceOfferModel> {
                 public void onFault(String errorMessage) {
                     log.error("Sending {} failed: uid={}; peer={}; error={}", request.getClass().getSimpleName(), arbitrator.getNodeAddress(), offer.getId(), errorMessage);
                     appendToErrorMessage("Sending message failed: message=" + request + "\nerrorMessage=" + errorMessage);
-                    //log.error("Unfreezing reserveTx for offerId={}", offer.getId());
-                    //model.getXmrWalletService().getWallet().thawOutput(model.getReserveTx().getKey());
+
+                    log.error("Unfreezing reserveTx for offerId={}", offer.getId());
+                    MoneroTxWallet reserveTx = model.getReserveTx();
+                    if (reserveTx != null) { unfreezeOutputs(reserveTx);}
+                    offer.getOfferPayload().setReserveTxKeyImages(null);
+                    offer.setOfferFeePaymentTxId(null);
+                    model.setReserveTx(null);
                     failed();
                 }
               });
@@ -118,9 +132,21 @@ public class MakerSendsSignOfferRequest extends Task<PlaceOfferModel> {
                 "Error message:\n"
                 + t.getMessage());
 
-            //log.error("Unfreezing reserveTx for offerId={}", offer.getId());
-            //model.getXmrWalletService().getWallet().thawOutput(model.getReserveTx().getKey());
+            MoneroTxWallet reserveTx = model.getReserveTx();
+            if (reserveTx != null) { unfreezeOutputs(reserveTx);}
+            offer.getOfferPayload().setReserveTxKeyImages(null);
+            offer.setOfferFeePaymentTxId(null);
             failed(t);
         }
     }
+
+    private void unfreezeOutputs(MoneroTxWallet reserveTx){
+        List<String> reservedKeyImages = new ArrayList<String>();
+        MoneroWallet wallet = model.getXmrWalletService().getWallet();
+        for (MoneroOutput input : reserveTx.getInputs()) {
+            reservedKeyImages.remove(input.getKeyImage().getHex());
+            wallet.thawOutput(input.getKeyImage().getHex());
+        }
+    }
+
 }

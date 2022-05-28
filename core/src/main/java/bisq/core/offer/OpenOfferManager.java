@@ -101,6 +101,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 
 
+import monero.daemon.model.MoneroOutput;
 import monero.wallet.MoneroWallet;
 import monero.wallet.model.MoneroDestination;
 import monero.wallet.model.MoneroOutputQuery;
@@ -441,8 +442,7 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
         );
 
         placeOfferProtocols.put(offer.getId(), placeOfferProtocol);
-        placeOfferProtocol.placeOffer(); // TODO (woodser): if error placing offer (e.g. bad signature), remove protocol and unfreeze trade funds
-        //catch (Exception e){ placeOfferProtocols.remove(offer.getId(), placeOfferProtocol); }
+        placeOfferProtocol.placeOffer();  // TODO (woodser): if error placing offer (e.g. bad signature), remove protocol and unfreeze trade funds
     }
 
     // Remove from offerbook
@@ -1246,6 +1246,15 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
         if (retryRepublishOffersTimer != null) {
             retryRepublishOffersTimer.stop();
             retryRepublishOffersTimer = null;
+        }
+    }
+
+    private void unfreezeOutputs(MoneroTxWallet reserveTx, PlaceOfferModel model){
+        List<String> reservedKeyImages = new ArrayList<String>();
+        MoneroWallet wallet = model.getXmrWalletService().getWallet();
+        for (MoneroOutput input : reserveTx.getInputs()) {
+            reservedKeyImages.add(input.getKeyImage().getHex());
+            wallet.thawOutput(input.getKeyImage().getHex());
         }
     }
 }

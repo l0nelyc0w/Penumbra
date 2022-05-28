@@ -155,7 +155,7 @@ public class TradeUtils {
                 .setAccountIndex(0)
                 .addDestination(TradeUtils.FEE_ADDRESS, tradeFee)
                 .addDestination(returnAddress, depositAmount));
-        BigInteger miningFee = miningFeeTx.getFee();
+        BigInteger miningFee = BigInteger.valueOf(100000000l);
 
         // create reserve tx
         MoneroTxWallet reserveTx = wallet.createTx(new MoneroTxConfig()

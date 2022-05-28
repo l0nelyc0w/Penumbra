@@ -41,7 +41,7 @@ public class MakerReservesTradeFunds extends Task<PlaceOfferModel> {
     protected void run() {
 
         Offer offer = model.getOffer();
-
+        MoneroTxWallet reserveTx = null;
         try {
             runInterceptHook();
 
@@ -49,7 +49,7 @@ public class MakerReservesTradeFunds extends Task<PlaceOfferModel> {
             String returnAddress = model.getXmrWalletService().getOrCreateAddressEntry(offer.getId(), XmrAddressEntry.Context.TRADE_PAYOUT).getAddressString();
             BigInteger makerFee = ParsingUtils.coinToAtomicUnits(offer.getMakerFee());
             BigInteger depositAmount = ParsingUtils.coinToAtomicUnits(model.getReservedFundsForOffer());
-            MoneroTxWallet reserveTx = TradeUtils.createReserveTx(model.getXmrWalletService(), offer.getId(), makerFee, returnAddress, depositAmount);
+            reserveTx = TradeUtils.createReserveTx(model.getXmrWalletService(), offer.getId(), makerFee, returnAddress, depositAmount);
 
             // freeze reserved outputs
             // TODO (woodser): synchronize to handle potential race condition where concurrent trades freeze each other's outputs
@@ -67,10 +67,21 @@ public class MakerReservesTradeFunds extends Task<PlaceOfferModel> {
             offer.setOfferFeePaymentTxId(reserveTx.getHash()); // TODO (woodser): don't use this field
             complete();
         } catch (Throwable t) {
-            offer.setErrorMessage("An error occurred.\n" +
-                "Error message:\n"
-                + t.getMessage());
+            offer.setErrorMessage("An error occurred.\n" + "Error message:\n" + t.getMessage());
+            if (reserveTx != null) { unfreezeOutputs(reserveTx);}
+            offer.getOfferPayload().setReserveTxKeyImages(null);
+            offer.setOfferFeePaymentTxId(null);
+            model.setReserveTx(null);
             failed(t);
+        }
+    }
+
+    private void unfreezeOutputs(MoneroTxWallet reserveTx){
+        List<String> reservedKeyImages = new ArrayList<String>();
+        MoneroWallet wallet = model.getXmrWalletService().getWallet();
+        for (MoneroOutput input : reserveTx.getInputs()) {
+            reservedKeyImages.remove(input.getKeyImage().getHex());
+            wallet.thawOutput(input.getKeyImage().getHex());
         }
     }
 }
