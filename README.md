@@ -1,4 +1,4 @@
-## Introcucing Penumbra. A truly uncensorable DEX.
+## Introducing Penumbra. A truly uncensorable DEX.
 
 Penumbra is a <a href="https://github.com/haveno-dex/haveno">Haveno's</a> fork that is strongly aligned with the values of decentralisation, privacy and censorship resistance.
 
