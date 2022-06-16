@@ -151,10 +151,10 @@ public class TradeUtils {
 
         // get expected mining fee
         MoneroWallet wallet = xmrWalletService.getWallet();
-        MoneroTxWallet miningFeeTx = wallet.createTx(new MoneroTxConfig()
-                .setAccountIndex(0)
-                .addDestination(TradeUtils.FEE_ADDRESS, tradeFee)
-                .addDestination(returnAddress, depositAmount));
+//        MoneroTxWallet miningFeeTx = wallet.createTx(new MoneroTxConfig()
+//                .setAccountIndex(0)
+//                .addDestination(TradeUtils.FEE_ADDRESS, tradeFee)
+//                .addDestination(returnAddress, depositAmount));
         BigInteger miningFee = BigInteger.valueOf(100000000l);
 
         // create reserve tx

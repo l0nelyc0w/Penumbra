@@ -19,6 +19,7 @@ package bisq.core.trade.protocol.tasks.taker;
 
 import bisq.common.taskrunner.TaskRunner;
 import bisq.core.btc.model.XmrAddressEntry;
+import bisq.core.offer.Offer;
 import bisq.core.trade.Trade;
 import bisq.core.trade.TradeUtils;
 import bisq.core.trade.protocol.tasks.TradeTask;
@@ -38,6 +39,8 @@ public class TakerReservesTradeFunds extends TradeTask {
 
     @Override
     protected void run() {
+        Offer offer = model.getOffer();
+        MoneroTxWallet reserveTx = null;
         try {
             runInterceptHook();
 
@@ -45,7 +48,7 @@ public class TakerReservesTradeFunds extends TradeTask {
             String returnAddress = model.getXmrWalletService().getOrCreateAddressEntry(trade.getOffer().getId(), XmrAddressEntry.Context.TRADE_PAYOUT).getAddressString();
             BigInteger takerFee = ParsingUtils.coinToAtomicUnits(trade.getTakerFee());
             BigInteger depositAmount = ParsingUtils.centinerosToAtomicUnits(processModel.getFundsNeededForTradeAsLong());
-            MoneroTxWallet reserveTx = TradeUtils.createReserveTx(model.getXmrWalletService(), trade.getId(), takerFee, returnAddress, depositAmount);
+            reserveTx = TradeUtils.createReserveTx(model.getXmrWalletService(), trade.getId(), takerFee, returnAddress, depositAmount);
 
             // freeze trade funds
             // TODO (woodser): synchronize to handle potential race condition where concurrent trades freeze each other's outputs
@@ -64,10 +67,21 @@ public class TakerReservesTradeFunds extends TradeTask {
             //trade.setState(Trade.State.TAKER_PUBLISHED_TAKER_FEE_TX); // TODO (woodser): fee tx is not broadcast separate, update states
             complete();
         } catch (Throwable t) {
-            trade.setErrorMessage("An error occurred.\n" +
-                "Error message:\n"
-                + t.getMessage());
+            trade.setErrorMessage("An error occurred.\n" + "Error message:\n" + t.getMessage());
+            if (reserveTx != null) { unfreezeOutputs(reserveTx);}
+            processModel.getTaker().setReserveTxKeyImages(null);
+            trade.setTakerFeeTxId(null);
+            processModel.setReserveTx(null);
             failed(t);
+        }
+    }
+
+    private void unfreezeOutputs(MoneroTxWallet reserveTx){
+        List<String> reservedKeyImages = new ArrayList<String>();
+        MoneroWallet wallet = model.getXmrWalletService().getWallet();
+        for (MoneroOutput input : reserveTx.getInputs()) {
+            reservedKeyImages.remove(input.getKeyImage().getHex());
+            wallet.thawOutput(input.getKeyImage().getHex());
         }
     }
 }

@@ -115,6 +115,8 @@ public final class TradingPeer implements PersistablePayload {
     private String depositTxHex;
     @Nullable
     private String depositTxKey;
+    @Nullable
+    private String depositAddress;
 
     public TradingPeer() {
     }
@@ -150,6 +152,7 @@ public final class TradingPeer implements PersistablePayload {
         Optional.ofNullable(depositTxHash).ifPresent(e -> builder.setDepositTxHash(depositTxHash));
         Optional.ofNullable(depositTxHex).ifPresent(e -> builder.setDepositTxHex(depositTxHex));
         Optional.ofNullable(depositTxKey).ifPresent(e -> builder.setDepositTxKey(depositTxKey));
+        Optional.ofNullable(depositAddress).ifPresent(e -> builder.setDepositTxKey(depositAddress));
 
         builder.setCurrentDate(currentDate);
         return builder.build();
@@ -193,6 +196,7 @@ public final class TradingPeer implements PersistablePayload {
             tradingPeer.setDepositTxHash(ProtoUtil.stringOrNullFromProto(proto.getDepositTxHash()));
             tradingPeer.setDepositTxHex(ProtoUtil.stringOrNullFromProto(proto.getDepositTxHex()));
             tradingPeer.setDepositTxKey(ProtoUtil.stringOrNullFromProto(proto.getDepositTxKey()));
+            tradingPeer.setDepositAddress(ProtoUtil.stringOrNullFromProto(proto.getDepositAddress()));
             return tradingPeer;
         }
     }

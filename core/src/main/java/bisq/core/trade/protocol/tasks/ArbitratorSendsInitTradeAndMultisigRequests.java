@@ -145,11 +145,11 @@ public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
         }
 
         // create wallet for multisig
-        MoneroWallet multisigWallet = processModel.getXmrWalletService().createMultisigWallet(trade.getId());
+        //MoneroWallet multisigWallet = processModel.getXmrWalletService().createMultisigWallet(trade.getId());
 
         // prepare multisig
-        String preparedHex = multisigWallet.prepareMultisig();
-        processModel.setPreparedMultisigHex(preparedHex);
+        //String preparedHex = multisigWallet.prepareMultisig();
+        //processModel.setPreparedMultisigHex(preparedHex);
 
         // create message to initialize multisig
         InitMultisigRequest initMultisigRequest = new InitMultisigRequest(
@@ -159,7 +159,8 @@ public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
                 UUID.randomUUID().toString(),
                 Version.getP2PMessageVersion(),
                 new Date().getTime(),
-                preparedHex,
+                null,
+                null,
                 null);
 
         // send request to maker

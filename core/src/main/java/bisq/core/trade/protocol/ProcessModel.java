@@ -181,6 +181,10 @@ public class ProcessModel implements Model, PersistablePayload {
     @Nullable
     @Getter
     @Setter
+    private String depositAddress;
+    @Nullable
+    @Getter
+    @Setter
     private boolean multisigSetupComplete;
     @Nullable
     @Getter
@@ -251,6 +255,7 @@ public class ProcessModel implements Model, PersistablePayload {
         Optional.ofNullable(backupArbitrator).ifPresent(e -> builder.setBackupArbitrator(backupArbitrator.toProtoMessage()));
         Optional.ofNullable(preparedMultisigHex).ifPresent(e -> builder.setPreparedMultisigHex(preparedMultisigHex));
         Optional.ofNullable(madeMultisigHex).ifPresent(e -> builder.setMadeMultisigHex(madeMultisigHex));
+        Optional.ofNullable(depositAddress).ifPresent(e -> builder.setMadeMultisigHex(depositAddress));
         Optional.ofNullable(multisigSetupComplete).ifPresent(e -> builder.setMultisigSetupComplete(multisigSetupComplete));
         Optional.ofNullable(makerReadyToFundMultisig).ifPresent(e -> builder.setMakerReadyToFundMultisig(makerReadyToFundMultisig));
         Optional.ofNullable(multisigDepositInitiated).ifPresent(e -> builder.setMultisigSetupComplete(multisigDepositInitiated));
@@ -284,6 +289,7 @@ public class ProcessModel implements Model, PersistablePayload {
         processModel.setBackupArbitrator(proto.hasBackupArbitrator() ? NodeAddress.fromProto(proto.getBackupArbitrator()) : null);
         processModel.setPreparedMultisigHex(ProtoUtil.stringOrNullFromProto(proto.getPreparedMultisigHex()));
         processModel.setMadeMultisigHex(ProtoUtil.stringOrNullFromProto(proto.getMadeMultisigHex()));
+        processModel.setDepositAddress(ProtoUtil.stringOrNullFromProto(proto.getDepositAddress()));
         processModel.setMultisigSetupComplete(proto.getMultisigSetupComplete());
         processModel.setMakerReadyToFundMultisig(proto.getMakerReadyToFundMultisig());
         processModel.setMultisigDepositInitiated(proto.getMultisigDepositInitiated());

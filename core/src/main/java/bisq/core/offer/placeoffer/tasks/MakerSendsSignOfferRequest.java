@@ -100,6 +100,12 @@ public class MakerSendsSignOfferRequest extends Task<PlaceOfferModel> {
                     } else {
                         if (!failed) {
                             failed = true;
+                            log.error("Unfreezing reserveTx for offerId={}", offer.getId());
+                            MoneroTxWallet reserveTx = model.getReserveTx();
+                            if (reserveTx != null) { unfreezeOutputs(reserveTx);}
+                            offer.getOfferPayload().setReserveTxKeyImages(null);
+                            offer.setOfferFeePaymentTxId(null);
+                            model.setReserveTx(null);
                             failed(ackMessage.getErrorMessage()); // TODO: (woodser): only fail once? build into task?
                         }
                     }

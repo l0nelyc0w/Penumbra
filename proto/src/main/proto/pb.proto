@@ -318,6 +318,7 @@ message InitMultisigRequest {
     int64 current_date = 5;
     string prepared_multisig_hex = 6;
     string made_multisig_hex = 7;
+    string deposit_address = 8;
 }
 
 message SignContractRequest {
@@ -1646,6 +1647,7 @@ message ProcessModel {
     int64 buyer_payout_amount_from_mediation = 19;
     int64 seller_payout_amount_from_mediation = 20;
 
+    string deposit_address = 1000;
     string maker_signature = 1001;
     NodeAddress backup_arbitrator = 1002;
     TradingPeer maker = 1003;
@@ -1689,6 +1691,7 @@ message TradingPeer {
     string deposit_tx_hash = 1008;
     string deposit_tx_hex = 1009;
     string deposit_tx_key = 1010;
+    string deposit_address = 1011;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
