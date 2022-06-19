@@ -1,10 +1,10 @@
 
 
 ## Introducing Penumbra. A truly uncensorable DEX.
-<p>
-<img style="float: right;" src="https://gitlab.com/l0nelyc0w/penumbra/-/raw/penumbra-master/desktop/src/main/resources/images/logo_splash.png">
+
+<img style="float: center;" src="https://gitlab.com/l0nelyc0w/penumbra/-/raw/penumbra-master/desktop/src/main/resources/images/logo_splash.png">
+
 Penumbra is a <a href="https://github.com/haveno-dex/haveno">Haveno's</a> fork that is strongly aligned with the values of decentralisation, privacy and censorship resistance.
-</p>
 
 An illustration of how Penumbra will operate as a DEX can be found [here](https://gitlab.com/l0nelyc0w/penumbra/-/design_management/designs/431134/12effd1d1ee0bc5a8e50843b2c9b174d9d630164/resized_image/v432x230).
 
