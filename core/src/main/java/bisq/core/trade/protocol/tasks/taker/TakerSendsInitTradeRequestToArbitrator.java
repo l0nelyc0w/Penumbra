@@ -17,7 +17,7 @@
 
 package bisq.core.trade.protocol.tasks.taker;
 
-import bisq.core.support.dispute.mediation.mediator.Mediator;
+import bisq.core.support.dispute.arbitration.arbitrator.Arbitrator;
 import bisq.core.trade.Trade;
 import bisq.core.trade.messages.InitTradeRequest;
 import bisq.core.trade.protocol.tasks.TradeTask;
@@ -47,7 +47,6 @@ public class TakerSendsInitTradeRequestToArbitrator extends TradeTask {
                 @Override
                 public void onArrived() {
                     log.info("{} arrived at arbitrator: offerId={}", InitTradeRequest.class.getSimpleName(), trade.getId());
-                    complete();
                 }
 
                 // send request to backup arbitrator if signer unavailable
@@ -63,7 +62,6 @@ public class TakerSendsInitTradeRequestToArbitrator extends TradeTask {
                         @Override
                         public void onArrived() {
                             log.info("{} arrived at backup arbitrator: offerId={}", InitTradeRequest.class.getSimpleName(), trade.getId());
-                            complete();
                         }
                         @Override
                         public void onFault(String errorMessage) { // TODO (woodser): distinguish nack from offline
@@ -73,6 +71,7 @@ public class TakerSendsInitTradeRequestToArbitrator extends TradeTask {
                     });
                 }
             });
+            complete(); // TODO (woodser): onArrived() doesn't get called if arbitrator rejects concurrent requests. always complete before onArrived()?
         } catch (Throwable t) {
           failed(t);
         }
@@ -81,7 +80,7 @@ public class TakerSendsInitTradeRequestToArbitrator extends TradeTask {
     private void sendInitTradeRequest(NodeAddress arbitratorNodeAddress, SendDirectMessageListener listener) {
 
         // get registered arbitrator
-        Mediator arbitrator = processModel.getUser().getAcceptedMediatorByAddress(arbitratorNodeAddress);
+        Arbitrator arbitrator = processModel.getUser().getAcceptedArbitratorByAddress(arbitratorNodeAddress);
         if (arbitrator == null) throw new RuntimeException("Node address " + arbitratorNodeAddress + " is not a registered arbitrator");
 
         // set pub keys

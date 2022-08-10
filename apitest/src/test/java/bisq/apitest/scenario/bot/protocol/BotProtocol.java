@@ -39,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import static bisq.apitest.scenario.bot.protocol.ProtocolStep.*;
 import static bisq.apitest.scenario.bot.shutdown.ManualShutdown.checkIfShutdownCalled;
+import static bisq.cli.table.builder.TableType.TRADE_DETAIL_TBL;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Arrays.stream;
@@ -50,7 +51,7 @@ import bisq.apitest.method.BitcoinCliHelper;
 import bisq.apitest.scenario.bot.BotClient;
 import bisq.apitest.scenario.bot.script.BashScriptGenerator;
 import bisq.apitest.scenario.bot.shutdown.ManualBotShutdownException;
-import bisq.cli.TradeFormat;
+import bisq.cli.table.builder.TableBuilder;
 
 @Slf4j
 public abstract class BotProtocol {
@@ -132,8 +133,9 @@ public abstract class BotProtocol {
                 checkIfShutdownCalled("Interrupted before checking if 'payment started' message has been sent.");
                 try {
                     var t = this.getBotClient().getTrade(trade.getTradeId());
-                    if (t.getIsFiatSent()) {
-                        log.info("Buyer has started payment for trade:\n{}", TradeFormat.format(t));
+                    if (t.getIsPaymentSent()) {
+                        log.info("Buyer has started payment for trade:\n{}",
+                                new TableBuilder(TRADE_DETAIL_TBL, t).build().toString());
                         return t;
                     }
                 } catch (Exception ex) {
@@ -166,8 +168,9 @@ public abstract class BotProtocol {
                 checkIfShutdownCalled("Interrupted before checking if 'payment received confirmation' message has been sent.");
                 try {
                     var t = this.getBotClient().getTrade(trade.getTradeId());
-                    if (t.getIsFiatReceived()) {
-                        log.info("Seller has received payment for trade:\n{}", TradeFormat.format(t));
+                    if (t.getIsPaymentReceived()) {
+                        log.info("Seller has received payment for trade:\n{}",
+                                new TableBuilder(TRADE_DETAIL_TBL, t).build().toString());
                         return t;
                     }
                 } catch (Exception ex) {
@@ -202,7 +205,7 @@ public abstract class BotProtocol {
                     if (t.getIsPayoutPublished()) {
                         log.info("Payout tx {} has been published for trade:\n{}",
                                 t.getPayoutTxId(),
-                                TradeFormat.format(t));
+                                new TableBuilder(TRADE_DETAIL_TBL, t).build().toString());
                         return t;
                     }
                 } catch (Exception ex) {
@@ -217,21 +220,6 @@ public abstract class BotProtocol {
         } catch (Exception ex) {
             throw new IllegalStateException("Error while waiting for published payout tx.", ex);
         }
-    };
-
-    protected final Function<TradeInfo, TradeInfo> keepFundsFromTrade = (trade) -> {
-        initProtocolStep.accept(KEEP_FUNDS);
-        var isBuy = trade.getOffer().getDirection().equalsIgnoreCase(BUY);
-        var isSell = trade.getOffer().getDirection().equalsIgnoreCase(SELL);
-        var cliUserIsSeller = (this instanceof MakerBotProtocol && isBuy) || (this instanceof TakerBotProtocol && isSell);
-        if (cliUserIsSeller) {
-            createKeepFundsScript(trade);
-        } else {
-            createGetBalanceScript();
-        }
-        checkIfShutdownCalled("Interrupted before closing trade with 'keep funds' command.");
-        this.getBotClient().sendKeepFundsMessage(trade.getTradeId());
-        return trade;
     };
 
     protected void createPaymentStartedScript(TradeInfo trade) {
@@ -316,7 +304,7 @@ public abstract class BotProtocol {
         if (currentProtocolStep.equals(WAIT_FOR_TAKER_DEPOSIT_TX_PUBLISHED) && trade.getIsDepositPublished()) {
             log.info("Taker deposit fee tx {} has been published.", trade.getTakerDepositTxId());
             return true;
-        } else if (currentProtocolStep.equals(WAIT_FOR_TAKER_DEPOSIT_TX_CONFIRMED) && trade.getIsDepositConfirmed()) {
+        } else if (currentProtocolStep.equals(WAIT_FOR_TAKER_DEPOSIT_TX_CONFIRMED) && trade.getIsDepositUnlocked()) {
             log.info("Taker deposit fee tx {} has been confirmed.", trade.getTakerDepositTxId());
             return true;
         } else {

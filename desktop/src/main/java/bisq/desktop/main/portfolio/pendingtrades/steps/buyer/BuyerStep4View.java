@@ -18,8 +18,6 @@
 package bisq.desktop.main.portfolio.pendingtrades.steps.buyer;
 
 import bisq.desktop.components.AutoTooltipButton;
-import bisq.desktop.components.AutoTooltipLabel;
-import bisq.desktop.components.InputTextField;
 import bisq.desktop.components.TitledGroupBg;
 import bisq.desktop.main.MainView;
 import bisq.desktop.main.overlays.notifications.Notification;
@@ -46,10 +44,6 @@ import bisq.asset.AssetRegistry;
 
 import bisq.common.UserThread;
 import bisq.common.app.DevEnv;
-import bisq.common.handlers.FaultHandler;
-import bisq.common.handlers.ResultHandler;
-
-import org.bitcoinj.core.Coin;
 
 import com.jfoenix.controls.JFXBadge;
 
@@ -69,8 +63,6 @@ import java.math.BigInteger;
 import java.util.concurrent.TimeUnit;
 
 import static bisq.desktop.util.FormBuilder.addCompactTopLabelTextField;
-import static bisq.desktop.util.FormBuilder.addInputTextField;
-import static bisq.desktop.util.FormBuilder.addTitledGroupBg;
 
 
 
@@ -80,11 +72,8 @@ import monero.wallet.model.MoneroTxConfig;
 import monero.wallet.model.MoneroTxWallet;
 
 public class BuyerStep4View extends TradeStepView {
-    // private final ChangeListener<Boolean> focusedPropertyListener;
 
-    private InputTextField withdrawAddressTextField, withdrawMemoTextField;
-    private Button withdrawToExternalWalletButton, useSavingsWalletButton;
-    private TitledGroupBg withdrawTitledGroupBg;
+    private Button closeButton;
 
     ///////////////////////////////////////////////////////////////////////////////////////////
     // Constructor, Initialisation
@@ -116,8 +105,13 @@ public class BuyerStep4View extends TradeStepView {
         gridPane.getColumnConstraints().get(1).setHgrow(Priority.SOMETIMES);
 
         TitledGroupBg completedTradeLabel = new TitledGroupBg();
-        completedTradeLabel.setText(Res.get("portfolio.pending.step5_buyer.groupTitle"));
-
+        if (trade.getDisputeState().isMediated()) {
+            completedTradeLabel.setText(Res.get("portfolio.pending.step5_buyer.groupTitle.mediated"));
+        } else if (trade.getDisputeState().isArbitrated()) {
+            completedTradeLabel.setText(Res.get("portfolio.pending.step5_buyer.groupTitle.arbitrated"));
+        } else {
+            completedTradeLabel.setText(Res.get("portfolio.pending.step5_buyer.groupTitle"));
+        }
         JFXBadge autoConfBadge = new JFXBadge(new Label(""), Pos.BASELINE_RIGHT);
         autoConfBadge.setText(Res.get("portfolio.pending.autoConf"));
         autoConfBadge.getStyleClass().add("auto-conf");
@@ -128,49 +122,28 @@ public class BuyerStep4View extends TradeStepView {
         GridPane.setRowSpan(hBox2, 5);
         autoConfBadge.setVisible(AssetTxProofResult.COMPLETED == trade.getAssetTxProofResult());
 
-        addCompactTopLabelTextField(gridPane, gridRow, getBtcTradeAmountLabel(), model.getTradeVolume(), Layout.TWICE_FIRST_ROW_DISTANCE);
-        addCompactTopLabelTextField(gridPane, ++gridRow, getFiatTradeAmountLabel(), model.getFiatVolume());
-        addCompactTopLabelTextField(gridPane, ++gridRow, Res.get("portfolio.pending.step5_buyer.refunded"), model.getSecurityDeposit());
-        addCompactTopLabelTextField(gridPane, ++gridRow, Res.get("portfolio.pending.step5_buyer.tradeFee"), model.getTradeFee());
-        final String miningFee = model.dataModel.isMaker() ?
-                Res.get("portfolio.pending.step5_buyer.makersMiningFee") :
-                Res.get("portfolio.pending.step5_buyer.takersMiningFee");
-        addCompactTopLabelTextField(gridPane, ++gridRow, miningFee, model.getTxFee());
-        withdrawTitledGroupBg = addTitledGroupBg(gridPane, ++gridRow, 1, Res.get("portfolio.pending.step5_buyer.withdrawBTC"), Layout.COMPACT_GROUP_DISTANCE);
-        withdrawTitledGroupBg.getStyleClass().add("last");
-        addCompactTopLabelTextField(gridPane, gridRow, Res.get("portfolio.pending.step5_buyer.amount"), model.getPayoutAmount(), Layout.FIRST_ROW_AND_GROUP_DISTANCE);
+        if (trade.getDisputeState().isNotDisputed()) {
+            addCompactTopLabelTextField(gridPane, gridRow, getBtcTradeAmountLabel(), model.getTradeVolume(), Layout.TWICE_FIRST_ROW_DISTANCE);
+            addCompactTopLabelTextField(gridPane, ++gridRow, getFiatTradeAmountLabel(), model.getFiatVolume());
+            addCompactTopLabelTextField(gridPane, ++gridRow, Res.get("portfolio.pending.step5_buyer.refunded"), model.getSecurityDeposit());
+            addCompactTopLabelTextField(gridPane, ++gridRow, Res.get("portfolio.pending.step5_buyer.tradeFee"), model.getTradeFee());
+            final String miningFee = model.dataModel.isMaker() ?
+                    Res.get("portfolio.pending.step5_buyer.makersMiningFee") :
+                    Res.get("portfolio.pending.step5_buyer.takersMiningFee");
+            addCompactTopLabelTextField(gridPane, ++gridRow, miningFee, model.getTxFee());
+        }
 
-        withdrawAddressTextField = addInputTextField(gridPane, ++gridRow, Res.get("portfolio.pending.step5_buyer.withdrawToAddress"));
-        withdrawAddressTextField.setManaged(false);
-        withdrawAddressTextField.setVisible(false);
-
-        withdrawMemoTextField = addInputTextField(gridPane, ++gridRow,
-                Res.get("funds.withdrawal.memoLabel", Res.getBaseCurrencyCode()));
-        withdrawMemoTextField.setPromptText(Res.get("funds.withdrawal.memo"));
-        withdrawMemoTextField.setManaged(false);
-        withdrawMemoTextField.setVisible(false);
-
-        HBox hBox = new HBox();
-        hBox.setSpacing(10);
-        useSavingsWalletButton = new AutoTooltipButton(Res.get("portfolio.pending.step5_buyer.moveToHavenoWallet"));
-        useSavingsWalletButton.setDefaultButton(true);
-        useSavingsWalletButton.getStyleClass().add("action-button");
-        Label label = new AutoTooltipLabel(Res.get("shared.OR"));
-        label.setPadding(new Insets(5, 0, 0, 0));
-        withdrawToExternalWalletButton = new AutoTooltipButton(Res.get("portfolio.pending.step5_buyer.withdrawExternal"));
-        withdrawToExternalWalletButton.setDefaultButton(false);
-        hBox.getChildren().addAll(useSavingsWalletButton, label, withdrawToExternalWalletButton);
-        GridPane.setRowIndex(hBox, ++gridRow);
-        GridPane.setMargin(hBox, new Insets(5, 10, 0, 0));
-        gridPane.getChildren().add(hBox);
+        closeButton = new AutoTooltipButton(Res.get("shared.close"));
+        closeButton.setDefaultButton(true);
+        closeButton.getStyleClass().add("action-button");
+        GridPane.setRowIndex(closeButton, ++gridRow);
+        GridPane.setMargin(closeButton, new Insets(Layout.GROUP_DISTANCE, 10, 0, 0));
+        gridPane.getChildren().add(closeButton);
 
         //lolen, menu keep/withdraw actions
         useSavingsWalletButton.setOnAction(e -> {
             handleTradeCompleted();
             model.dataModel.tradeManager.onTradeCompleted(trade);
-        });
-        withdrawToExternalWalletButton.setOnAction(e -> {
-            onWithdrawal();
         });
 
         String key = "tradeCompleted" + trade.getId();
@@ -323,8 +296,7 @@ public class BuyerStep4View extends TradeStepView {
     }
 
     private void handleTradeCompleted() {
-        useSavingsWalletButton.setDisable(true);
-        withdrawToExternalWalletButton.setDisable(true);
+        closeButton.setDisable(true);
         model.dataModel.xmrWalletService.swapTradeEntryToAvailableEntry(trade.getId(), XmrAddressEntry.Context.TRADE_PAYOUT);
 
         openTradeFeedbackWindow();
@@ -333,12 +305,10 @@ public class BuyerStep4View extends TradeStepView {
     private void openTradeFeedbackWindow() {
         String key = "feedbackPopupAfterTrade";
         if (!DevEnv.isDevMode() && preferences.showAgain(key)) {
-            UserThread.runAfter(() -> {
-                new TradeFeedbackWindow()
-                        .dontShowAgainId(key)
-                        .onAction(this::showNavigateToClosedTradesViewPopup)
-                        .show();
-            }, 500, TimeUnit.MILLISECONDS);
+            UserThread.runAfter(() -> new TradeFeedbackWindow()
+                    .dontShowAgainId(key)
+                    .onAction(this::showNavigateToClosedTradesViewPopup)
+                    .show(), 500, TimeUnit.MILLISECONDS);
         } else {
             showNavigateToClosedTradesViewPopup();
         }
@@ -346,21 +316,13 @@ public class BuyerStep4View extends TradeStepView {
 
     private void showNavigateToClosedTradesViewPopup() {
         if (!DevEnv.isDevMode()) {
-            UserThread.runAfter(() -> {
-                new Popup().headLine(Res.get("portfolio.pending.step5_buyer.withdrawalCompleted.headline"))
-                        .feedback(Res.get("portfolio.pending.step5_buyer.withdrawalCompleted.msg"))
-                        .actionButtonTextWithGoTo("navigation.portfolio.closedTrades")
-                        .onAction(() -> model.dataModel.navigation.navigateTo(MainView.class, PortfolioView.class, ClosedTradesView.class))
-                        .dontShowAgainId("tradeCompleteWithdrawCompletedInfo")
-                        .show();
-            }, 500, TimeUnit.MILLISECONDS);
+            UserThread.runAfter(() -> new Popup().headLine(Res.get("portfolio.pending.step5_buyer.tradeCompleted.headline"))
+                    .feedback(Res.get("portfolio.pending.step5_buyer.tradeCompleted.msg"))
+                    .actionButtonTextWithGoTo("navigation.portfolio.closedTrades")
+                    .onAction(() -> model.dataModel.navigation.navigateTo(MainView.class, PortfolioView.class, ClosedTradesView.class))
+                    .dontShowAgainId("tradeCompleteWithdrawCompletedInfo")
+                    .show(), 500, TimeUnit.MILLISECONDS);
         }
-    }
-
-    private void validateWithdrawAddress() {
-        withdrawAddressTextField.setValidator(model.btcAddressValidator);
-        withdrawAddressTextField.requestFocus();
-        useSavingsWalletButton.requestFocus();
     }
 
     protected String getBtcTradeAmountLabel() {

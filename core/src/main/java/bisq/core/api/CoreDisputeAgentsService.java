@@ -17,7 +17,10 @@
 
 package bisq.core.api;
 
+import bisq.core.btc.wallet.XmrWalletService;
 import bisq.core.support.SupportType;
+import bisq.core.support.dispute.arbitration.arbitrator.Arbitrator;
+import bisq.core.support.dispute.arbitration.arbitrator.ArbitratorManager;
 import bisq.core.support.dispute.mediation.mediator.Mediator;
 import bisq.core.support.dispute.mediation.mediator.MediatorManager;
 import bisq.core.support.dispute.refund.refundagent.RefundAgent;
@@ -33,7 +36,7 @@ import org.bitcoinj.core.ECKey;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -41,7 +44,6 @@ import java.util.Optional;
 
 import lombok.extern.slf4j.Slf4j;
 
-import static bisq.common.app.DevEnv.DEV_PRIVILEGE_PRIV_KEY;
 import static bisq.core.support.SupportType.ARBITRATION;
 import static bisq.core.support.SupportType.MEDIATION;
 import static bisq.core.support.SupportType.REFUND;
@@ -57,6 +59,8 @@ class CoreDisputeAgentsService {
     private final User user;
     private final Config config;
     private final KeyRing keyRing;
+    private final XmrWalletService xmrWalletService;
+    private final ArbitratorManager arbitratorManager;
     private final MediatorManager mediatorManager;
     private final RefundAgentManager refundAgentManager;
     private final P2PService p2PService;
@@ -67,12 +71,16 @@ class CoreDisputeAgentsService {
     public CoreDisputeAgentsService(User user,
                                     Config config,
                                     KeyRing keyRing,
+                                    XmrWalletService xmrWalletService,
+                                    ArbitratorManager arbitratorManager,
                                     MediatorManager mediatorManager,
                                     RefundAgentManager refundAgentManager,
                                     P2PService p2PService) {
         this.user = user;
         this.config = config;
         this.keyRing = keyRing;
+        this.xmrWalletService = xmrWalletService;
+        this.arbitratorManager = arbitratorManager;
         this.mediatorManager = mediatorManager;
         this.refundAgentManager = refundAgentManager;
         this.p2PService = p2PService;
@@ -88,22 +96,28 @@ class CoreDisputeAgentsService {
                 || !config.useLocalhostForP2P)
             throw new IllegalStateException("dispute agents must be registered in a Bisq UI");
 
-        if (!registrationKey.equals(DEV_PRIVILEGE_PRIV_KEY))
-            throw new IllegalArgumentException("invalid registration key");
-
         Optional<SupportType> supportType = getSupportType(disputeAgentType);
         if (supportType.isPresent()) {
             ECKey ecKey;
             String signature;
             switch (supportType.get()) {
                 case ARBITRATION:
-                    throw new IllegalArgumentException("arbitrators must be registered in a Bisq UI");
+                    if (user.getRegisteredArbitrator() != null) {
+                        log.warn("ignoring request to re-register as arbitrator");
+                        return;
+                    }
+                    ecKey = arbitratorManager.getRegistrationKey(registrationKey);
+                    if (ecKey == null) throw new IllegalStateException("invalid registration key");
+                    signature = arbitratorManager.signStorageSignaturePubKey(Objects.requireNonNull(ecKey));
+                    registerArbitrator(nodeAddress, languageCodes, ecKey, signature);
+                    return;
                 case MEDIATION:
                     if (user.getRegisteredMediator() != null) {
                         log.warn("ignoring request to re-register as mediator");
                         return;
                     }
                     ecKey = mediatorManager.getRegistrationKey(registrationKey);
+                    if (ecKey == null) throw new IllegalStateException("invalid registration key");
                     signature = mediatorManager.signStorageSignaturePubKey(Objects.requireNonNull(ecKey));
                     registerMediator(nodeAddress, languageCodes, ecKey, signature);
                     return;
@@ -113,6 +127,7 @@ class CoreDisputeAgentsService {
                         return;
                     }
                     ecKey = refundAgentManager.getRegistrationKey(registrationKey);
+                    if (ecKey == null) throw new IllegalStateException("invalid registration key");
                     signature = refundAgentManager.signStorageSignaturePubKey(Objects.requireNonNull(ecKey));
                     registerRefundAgent(nodeAddress, languageCodes, ecKey, signature);
                     return;
@@ -122,6 +137,28 @@ class CoreDisputeAgentsService {
         } else {
             throw new IllegalArgumentException(format("unknown dispute agent type '%s'", disputeAgentType));
         }
+    }
+
+    private void registerArbitrator(NodeAddress nodeAddress,
+                                    List<String> languageCodes,
+                                    ECKey ecKey,
+                                    String signature) {
+        Arbitrator arbitrator = new Arbitrator(
+                p2PService.getAddress(),
+                xmrWalletService.getWallet().getPrimaryAddress(), // TODO: how is this used?
+                keyRing.getPubKeyRing(),
+                new ArrayList<>(languageCodes),
+                new Date().getTime(),
+                ecKey.getPubKey(),
+                signature,
+                "",
+                null,
+                null);
+        arbitratorManager.addDisputeAgent(arbitrator, () -> {
+        }, errorMessage -> {
+        });
+        arbitratorManager.getDisputeAgentByNodeAddress(nodeAddress).orElseThrow(() ->
+                new IllegalStateException("could not register arbitrator"));
     }
 
     private void registerMediator(NodeAddress nodeAddress,

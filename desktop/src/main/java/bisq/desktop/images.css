@@ -1,7 +1,7 @@
 /* splash screen */
 /*noinspection CssUnknownTarget*/
 #image-splash-logo {
-    -fx-image: url("../../images/logo_splash.png");
+    -fx-image: url("../../images/logo_splash_testnet.png");
 }
 
 /* shared*/
@@ -27,6 +27,10 @@
 
 #image-remove {
     -fx-image: url("../../images/remove.png");
+}
+
+#image-edit {
+    -fx-image: url("../../images/edit.png");
 }
 
 #image-buy-white {

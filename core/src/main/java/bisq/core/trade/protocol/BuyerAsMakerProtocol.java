@@ -19,13 +19,14 @@ package bisq.core.trade.protocol;
 
 import bisq.core.trade.BuyerAsMakerTrade;
 import bisq.core.trade.Trade;
+import bisq.core.trade.Trade.State;
 import bisq.core.trade.messages.DelayedPayoutTxSignatureRequest;
 import bisq.core.trade.messages.DepositResponse;
 import bisq.core.trade.messages.DepositTxAndDelayedPayoutTxMessage;
 import bisq.core.trade.messages.InitMultisigRequest;
 import bisq.core.trade.messages.InitTradeRequest;
 import bisq.core.trade.messages.PaymentAccountPayloadRequest;
-import bisq.core.trade.messages.PayoutTxPublishedMessage;
+import bisq.core.trade.messages.PaymentReceivedMessage;
 import bisq.core.trade.messages.SignContractRequest;
 import bisq.core.trade.messages.SignContractResponse;
 import bisq.core.trade.protocol.tasks.ProcessDepositResponse;
@@ -47,11 +48,11 @@ import bisq.core.trade.protocol.tasks.maker.MakerVerifyTakerFeePayment;
 import bisq.core.util.Validator;
 
 import bisq.network.p2p.NodeAddress;
-
 import bisq.common.handlers.ErrorMessageHandler;
 import bisq.common.handlers.ResultHandler;
 
 import lombok.extern.slf4j.Slf4j;
+import org.fxmisc.easybind.EasyBind;
 
 @Slf4j
 public class BuyerAsMakerProtocol extends BuyerProtocol implements MakerProtocol {
@@ -228,7 +229,7 @@ public class BuyerAsMakerProtocol extends BuyerProtocol implements MakerProtocol
 
     // We keep the handler here in as well to make it more transparent which messages we expect
     @Override
-    protected void handle(PayoutTxPublishedMessage message, NodeAddress peer) {
+    protected void handle(PaymentReceivedMessage message, NodeAddress peer) {
         super.handle(message, peer);
     }
 

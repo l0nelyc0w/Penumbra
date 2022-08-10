@@ -19,7 +19,7 @@ package bisq.desktop.components;
 
 import de.jensd.fx.fontawesome.AwesomeDude;
 import de.jensd.fx.fontawesome.AwesomeIcon;
-
+import bisq.common.UserThread;
 import com.jfoenix.controls.JFXTextField;
 
 import javafx.scene.control.Label;
@@ -29,13 +29,9 @@ import javafx.scene.text.TextAlignment;
 
 import javafx.geometry.Pos;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import lombok.Getter;
 
 public class TextFieldWithIcon extends AnchorPane {
-    public static final Logger log = LoggerFactory.getLogger(TextFieldWithIcon.class);
     @Getter
     private final Label iconLabel;
     @Getter
@@ -45,7 +41,6 @@ public class TextFieldWithIcon extends AnchorPane {
     public TextFieldWithIcon() {
         textField = new JFXTextField();
         textField.setEditable(false);
-        textField.setMouseTransparent(true);
         textField.setFocusTraversable(false);
         setLeftAnchor(textField, 0d);
         setRightAnchor(textField, 0d);
@@ -71,11 +66,15 @@ public class TextFieldWithIcon extends AnchorPane {
     }
 
     public void setIcon(AwesomeIcon iconLabel) {
-        AwesomeDude.setIcon(this.iconLabel, iconLabel);
+        UserThread.execute(() -> {
+            AwesomeDude.setIcon(this.iconLabel, iconLabel);
+        });
     }
 
     public void setText(String text) {
-        textField.setText(text);
-        dummyTextField.setText(text);
+        UserThread.execute(() -> {
+            textField.setText(text);
+            dummyTextField.setText(text);
+        });
     }
 }

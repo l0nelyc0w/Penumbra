@@ -1,12 +1,11 @@
 buildscript {
     repositories {
-        jcenter()
+        gradlePluginPortal()
     }
     dependencies {
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.10'
         classpath 'com.google.gradle:osdetector-gradle-plugin:1.6.0'
         classpath 'com.github.jengelman.gradle.plugins:shadow:5.2.0'
-        classpath files('gradle/witness/gradle-witness.jar')
         classpath 'org.springframework.boot:spring-boot-gradle-plugin:1.5.10.RELEASE'
     }
 }
@@ -32,6 +31,7 @@ configure(subprojects) {
         bcVersion = '1.63'
         bitcoinjVersion = '2a80db4'
         codecVersion = '1.13'
+        cowwocVersion = '1.2'
         easybindVersion = '1.0.3'
         easyVersion = '4.0.1'
         findbugsVersion = '3.0.2'
@@ -42,7 +42,7 @@ configure(subprojects) {
         grpcVersion = '1.25.0'
         gsonVersion = '2.8.5'
         guavaVersion = '28.2-jre'
-        moneroJavaVersion = '0.6.3'
+        moneroJavaVersion = '0.7.0'
         httpclient5Version = '5.0'
         guiceVersion = '4.2.2'
         hamcrestVersion = '1.3'
@@ -65,9 +65,9 @@ configure(subprojects) {
         langVersion = '3.11'
         logbackVersion = '1.1.11'
         loggingVersion = '1.2'
-        lombokVersion = '1.18.12'
+        lombokVersion = '1.18.24'
         mockitoVersion = '3.5.15'
-        netlayerVersion = '8db4a13' // Commit ID from https://github.com/bisq-network/netlayer/commits/externaltor
+        netlayerVersion = '6797461310f077bbea4f43a3a509c077b0ed8c34' // Netlayer version 0.7.3 with Tor browser version 11.0.14 and tor binary version: 0.4.7.7 
         protobufVersion = '3.10.0'
         protocVersion = protobufVersion
         pushyVersion = '0.13.2'
@@ -282,7 +282,7 @@ configure(project(':common')) {
 
         // override transitive dependency version from 1.5 to the same version just identified by commit number.
         // Remove this if transitive dependency is changed to something else than 1.5
-        compile( group: 'com.github.JesusMcCloud', name: 'jtorctl') { version { strictly "[9b5ba2036b]" } }
+        compile(group: 'com.github.JesusMcCloud', name: 'jtorctl') { version { strictly "[9b5ba2036b]" } }
 
     }
 }
@@ -313,7 +313,7 @@ configure(project(':p2p')) {
         // If they have not, e.g. because Git LFS is not installed, they will be text files
         // containing a sha256 hash of the remote object, indicating we should stop the
         // build and inform the user how to fix the problem.
-        if (file('src/main/resources/AccountAgeWitnessStore_XMR_TESTNET_placeholder').text.contains("oid sha256:"))
+        if (file('src/main/resources/AccountAgeWitnessStore_XMR_LOCAL_placeholder').text.contains("oid sha256:"))
             throw new GradleException("p2p data store files have not been synchronized. " +
                 "To fix this, ensure you have Git LFS installed and run `git lfs pull`. " +
                 "See docs/build.md for more information.")
@@ -347,6 +347,7 @@ configure(project(':core')) {
             exclude(module: 'jackson-annotations')
             exclude(module: 'jackson-databind')
             exclude(module: 'bcprov-jdk15on')
+            exclude(group: 'org.slf4j', module: 'slf4j-simple')
         }
         implementation("org.apache.httpcomponents.client5:httpclient5:$httpclient5Version")
         implementation "com.google.protobuf:protobuf-java:$protobufVersion"
@@ -363,6 +364,13 @@ configure(project(':core')) {
     test {
         systemProperty 'jdk.attach.allowAttachSelf', true
     }
+
+    task havenoDeps(type: Exec) {
+        workingDir '..'
+        commandLine './scripts/haveno_deps.sh'
+    }
+    if (osdetector.os != 'windows') processResources.dependsOn havenoDeps // before both test and build
+    else println "Haveno dependencies must be downloaded manually on Windows"
 }
 
 configure(project(':cli')) {
@@ -397,6 +405,7 @@ configure(project(':cli')) {
         testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$jupiterVersion")
         testAnnotationProcessor "org.projectlombok:lombok:$lombokVersion"
         testCompileOnly "org.projectlombok:lombok:$lombokVersion"
+        testImplementation "org.bitbucket.cowwoc:diff-match-patch:$cowwocVersion"
         testRuntime "javax.annotation:javax.annotation-api:$javaxAnnotationVersion"
     }
 
@@ -407,11 +416,9 @@ configure(project(':cli')) {
 
 configure(project(':desktop')) {
     apply plugin: 'com.github.johnrengelman.shadow'
-    apply plugin: 'witness'
-    apply from: '../gradle/witness/gradle-witness.gradle'
     apply from: 'package/package.gradle'
 
-    version = '1.6.2-SNAPSHOT'
+    version = '0.0.1-SNAPSHOT'
 
     jar.manifest.attributes(
         "Implementation-Title": project.name,
@@ -486,51 +493,57 @@ configure(project(':monitor')) {
 configure(project(':pricenode')) {
     apply plugin: "org.springframework.boot"
 
+    apply plugin: 'io.spring.dependency-management'
+
+    mainClassName = 'bisq.price.Main'
+
     version = file("src/main/resources/version.txt").text.trim()
 
     jar.manifest.attributes(
         "Implementation-Title": project.name,
         "Implementation-Version": version)
 
+    ext['log4j2.version'] = '2.17.0'
+
     dependencies {
-        compile project(":core")
-
-        compileOnly "org.projectlombok:lombok:$lombokVersion"
+        implementation project(":common")
+        implementation project(":core")
         annotationProcessor "org.projectlombok:lombok:$lombokVersion"
-
+        compileOnly "org.projectlombok:lombok:$lombokVersion"
         implementation "com.google.code.gson:gson:$gsonVersion"
+        implementation "com.google.guava:guava:$guavaVersion"
         implementation "commons-codec:commons-codec:$codecVersion"
         implementation "org.apache.httpcomponents:httpcore:$httpcoreVersion"
         implementation("org.apache.httpcomponents:httpclient:$httpclientVersion") {
             exclude(module: 'commons-codec')
         }
-        compile("org.knowm.xchange:xchange-bitbay:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-btcmarkets:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-binance:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-bitfinex:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-bitflyer:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-bitstamp:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-cexio:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-coinmate:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-coinmarketcap:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-coinone:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-exmo:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-hitbtc:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-huobi:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-independentreserve:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-kraken:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-luno:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-mercadobitcoin:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-paribu:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-poloniex:$knowmXchangeVersion")
-        compile("org.knowm.xchange:xchange-quoine:$knowmXchangeVersion")
-        compile("org.springframework.boot:spring-boot-starter-web:$springBootVersion")
-        compile("org.springframework.boot:spring-boot-starter-actuator")
-        testCompile "org.junit.jupiter:junit-jupiter-api:$jupiterVersion"
-        testCompile "org.junit.jupiter:junit-jupiter-params:$jupiterVersion"
-        testRuntime("org.junit.jupiter:junit-jupiter-engine:$jupiterVersion")
-        testCompileOnly "org.projectlombok:lombok:$lombokVersion"
+        implementation("org.knowm.xchange:xchange-binance:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-bitbay:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-bitfinex:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-bitflyer:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-bitstamp:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-btcmarkets:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-cexio:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-coinmarketcap:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-coinmate:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-coinone:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-exmo:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-hitbtc:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-huobi:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-independentreserve:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-kraken:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-luno:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-mercadobitcoin:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-paribu:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-poloniex:$knowmXchangeVersion")
+        implementation("org.knowm.xchange:xchange-quoine:$knowmXchangeVersion")
+        implementation("org.springframework.boot:spring-boot-starter-web:$springBootVersion")
         testAnnotationProcessor "org.projectlombok:lombok:$lombokVersion"
+        testCompileOnly "org.projectlombok:lombok:$lombokVersion"
+        testImplementation "org.junit.jupiter:junit-jupiter-api:$jupiterVersion"
+        testImplementation "org.junit.jupiter:junit-jupiter-params:$jupiterVersion"
+        testImplementation "org.mockito:mockito-core:$mockitoVersion"
+        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$jupiterVersion")
     }
 
     test {

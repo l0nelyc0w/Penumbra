@@ -20,7 +20,8 @@ package bisq.core.trade.protocol;
 
 import bisq.core.trade.SellerAsMakerTrade;
 import bisq.core.trade.Trade;
-import bisq.core.trade.messages.CounterCurrencyTransferStartedMessage;
+import bisq.core.trade.Trade.State;
+import bisq.core.trade.messages.PaymentSentMessage;
 import bisq.core.trade.messages.DepositResponse;
 import bisq.core.trade.messages.DepositTxMessage;
 import bisq.core.trade.messages.InitMultisigRequest;
@@ -47,11 +48,11 @@ import bisq.core.trade.protocol.tasks.seller_as_maker.SellerAsMakerFinalizesDepo
 import bisq.core.trade.protocol.tasks.seller_as_maker.SellerAsMakerProcessDepositTxMessage;
 import bisq.core.util.Validator;
 import bisq.network.p2p.NodeAddress;
-
 import bisq.common.handlers.ErrorMessageHandler;
 import bisq.common.handlers.ResultHandler;
 
 import lombok.extern.slf4j.Slf4j;
+import org.fxmisc.easybind.EasyBind;
 
 @Slf4j
 public class SellerAsMakerProtocol extends SellerProtocol implements MakerProtocol {
@@ -74,22 +75,54 @@ public class SellerAsMakerProtocol extends SellerProtocol implements MakerProtoc
     public void handleInitTradeRequest(InitTradeRequest message,
                                        NodeAddress peer,
                                        ErrorMessageHandler errorMessageHandler) {
-        this.errorMessageHandler = errorMessageHandler;
-        expect(phase(Trade.Phase.INIT)
-                .with(message)
-                .from(peer))
-                .setup(tasks(
-                        ProcessInitTradeRequest.class,
-                        //ApplyFilter.class, // TODO (woodser): these checks apply when maker signs availability request, but not here
-                        //VerifyPeersAccountAgeWitness.class, // TODO (woodser): these checks apply after in multisig, means if rejected need to reimburse other's fee
-                        MakerSendsInitTradeRequestIfUnreserved.class)
-                .using(new TradeTaskRunner(trade,
+        System.out.println(getClass().getCanonicalName() + ".handleInitTradeRequest()");
+        synchronized (trade) {
+            this.errorMessageHandler = errorMessageHandler;
+            latchTrade();
+            expect(phase(Trade.Phase.INIT)
+                    .with(message)
+                    .from(peer))
+                    .setup(tasks(
+                            ProcessInitTradeRequest.class,
+                            //ApplyFilter.class, // TODO (woodser): these checks apply when maker signs availability request, but not here
+                            //VerifyPeersAccountAgeWitness.class, // TODO (woodser): these checks apply after in multisig, means if rejected need to reimburse other's fee
+                            MakerSendsInitTradeRequestIfUnreserved.class)
+                    .using(new TradeTaskRunner(trade,
+                            () -> {
+                                unlatchTrade();
+                                handleTaskRunnerSuccess(peer, message);
+                            },
+                            errorMessage -> {
+                                handleError(errorMessage);
+                                handleTaskRunnerFault(peer, message, errorMessage);
+                            }))
+                    .withTimeout(TRADE_TIMEOUT))
+                    .executeTasks();
+            awaitTradeLatch();
+        }
+    }
+    
+    @Override
+    public void handleInitMultisigRequest(InitMultisigRequest request, NodeAddress sender) {
+        System.out.println(getClass().getCanonicalName() + ".handleInitMultisigRequest()");
+        synchronized (trade) {
+            Validator.checkTradeId(processModel.getOfferId(), request);
+            processModel.setTradeMessage(request);
+            latchTrade();
+            expect(anyPhase(Trade.Phase.INIT)
+                    .with(request)
+                    .from(sender))
+                    .setup(tasks(
+                            ProcessInitMultisigRequest.class,
+                            SendSignContractRequestAfterMultisig.class)
+                    .using(new TradeTaskRunner(trade,
                         () -> {
-                            handleTaskRunnerSuccess(peer, message);
+                            unlatchTrade();
+                            handleTaskRunnerSuccess(sender, request);
                         },
                         errorMessage -> {
-                            errorMessageHandler.handleErrorMessage(errorMessage);
-                            handleTaskRunnerFault(peer, message, errorMessage);
+                            handleError(errorMessage);
+                            handleTaskRunnerFault(sender, request, errorMessage);
                         }))
                 .withTimeout(3600))
                 .executeTasks();
@@ -117,7 +150,7 @@ public class SellerAsMakerProtocol extends SellerProtocol implements MakerProtoc
               .withTimeout(3600))
               .executeTasks();
     }
-
+    
     @Override
     public void handleSignContractRequest(SignContractRequest message, NodeAddress sender) {
         System.out.println("BuyerAsMakerProtocol.handleSignContractRequest()");
@@ -271,7 +304,7 @@ public class SellerAsMakerProtocol extends SellerProtocol implements MakerProtoc
 
     // We keep the handler here in as well to make it more transparent which messages we expect
     @Override
-    protected void handle(CounterCurrencyTransferStartedMessage message, NodeAddress peer) {
+    protected void handle(PaymentSentMessage message, NodeAddress peer) {
         super.handle(message, peer);
     }
 }

@@ -30,40 +30,35 @@ import bisq.desktop.main.overlays.popups.Popup;
 
 import bisq.core.account.witness.AccountAgeWitness;
 import bisq.core.account.witness.AccountAgeWitnessService;
+import bisq.core.api.CoreMoneroConnectionsService;
 import bisq.core.app.HavenoSetup;
-import bisq.core.btc.setup.WalletsSetup;
+import bisq.core.btc.wallet.XmrWalletService;
 import bisq.core.locale.Country;
 import bisq.core.locale.CountryUtil;
 import bisq.core.locale.CurrencyUtil;
 import bisq.core.locale.Res;
 import bisq.core.locale.TradeCurrency;
-import bisq.core.monetary.Price;
-import bisq.core.monetary.Volume;
-import bisq.core.offer.OfferRestrictions;
 import bisq.core.payment.PaymentAccount;
 import bisq.core.payment.PaymentAccountList;
 import bisq.core.payment.payload.PaymentMethod;
 import bisq.core.provider.fee.FeeService;
-import bisq.core.provider.price.MarketPrice;
-import bisq.core.provider.price.PriceFeedService;
 import bisq.core.trade.txproof.AssetTxProofResult;
 import bisq.core.user.DontShowAgainLookup;
 import bisq.core.user.Preferences;
 import bisq.core.user.User;
 import bisq.core.util.FormattingUtils;
 import bisq.core.util.coin.CoinFormatter;
-import bisq.core.util.coin.CoinUtil;
 
 import bisq.network.p2p.P2PService;
 
 import bisq.common.UserThread;
 import bisq.common.app.DevEnv;
 import bisq.common.config.Config;
+import bisq.common.crypto.KeyRing;
 import bisq.common.file.CorruptedStorageFileHandler;
 import bisq.common.persistence.PersistenceManager;
 import bisq.common.proto.persistable.PersistableEnvelope;
 import bisq.common.proto.persistable.PersistenceProtoResolver;
-import bisq.common.util.MathUtils;
 import bisq.common.util.Tuple2;
 import bisq.common.util.Tuple3;
 import bisq.common.util.Utilities;
@@ -72,7 +67,6 @@ import org.bitcoinj.core.Address;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.TransactionConfidence;
 import org.bitcoinj.uri.BitcoinURI;
-import org.bitcoinj.utils.Fiat;
 
 import com.googlecode.jcsv.CSVStrategy;
 import com.googlecode.jcsv.writer.CSVEntryConverter;
@@ -103,13 +97,16 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollBar;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
-
+import javafx.scene.layout.Priority;
+import javafx.geometry.HPos;
 import javafx.geometry.Orientation;
 
 import javafx.collections.FXCollections;
@@ -138,7 +135,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import lombok.extern.slf4j.Slf4j;
-
+import monero.wallet.model.MoneroTxWallet;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
@@ -161,6 +158,8 @@ public class GUIUtil {
 
     private static FeeService feeService;
     private static Preferences preferences;
+    
+    public static TradeCurrency TOP_ALTCOIN = CurrencyUtil.getTradeCurrency("ETH").get();
 
     public static void setFeeService(FeeService feeService) {
         GUIUtil.feeService = feeService;
@@ -210,11 +209,12 @@ public class GUIUtil {
                                       Preferences preferences,
                                       Stage stage,
                                       PersistenceProtoResolver persistenceProtoResolver,
-                                      CorruptedStorageFileHandler corruptedStorageFileHandler) {
+                                      CorruptedStorageFileHandler corruptedStorageFileHandler,
+                                      KeyRing keyRing) {
         if (!accounts.isEmpty()) {
             String directory = getDirectoryFromChooser(preferences, stage);
             if (!directory.isEmpty()) {
-                PersistenceManager<PersistableEnvelope> persistenceManager = new PersistenceManager<>(new File(directory), persistenceProtoResolver, corruptedStorageFileHandler);
+                PersistenceManager<PersistableEnvelope> persistenceManager = new PersistenceManager<>(new File(directory), persistenceProtoResolver, corruptedStorageFileHandler, keyRing);
                 PaymentAccountList paymentAccounts = new PaymentAccountList(accounts);
                 persistenceManager.initialize(paymentAccounts, fileName, PersistenceManager.Source.PRIVATE_LOW_PRIO);
                 persistenceManager.persistNow(() -> {
@@ -234,7 +234,8 @@ public class GUIUtil {
                                       Preferences preferences,
                                       Stage stage,
                                       PersistenceProtoResolver persistenceProtoResolver,
-                                      CorruptedStorageFileHandler corruptedStorageFileHandler) {
+                                      CorruptedStorageFileHandler corruptedStorageFileHandler,
+                                      KeyRing keyRing) {
         FileChooser fileChooser = new FileChooser();
         File initDir = new File(preferences.getDirectoryChooserPath());
         if (initDir.isDirectory()) {
@@ -247,7 +248,7 @@ public class GUIUtil {
             if (Paths.get(path).getFileName().toString().equals(fileName)) {
                 String directory = Paths.get(path).getParent().toString();
                 preferences.setDirectoryChooserPath(directory);
-                PersistenceManager<PaymentAccountList> persistenceManager = new PersistenceManager<>(new File(directory), persistenceProtoResolver, corruptedStorageFileHandler);
+                PersistenceManager<PaymentAccountList> persistenceManager = new PersistenceManager<>(new File(directory), persistenceProtoResolver, corruptedStorageFileHandler, keyRing);
                 persistenceManager.readPersisted(fileName, persisted -> {
                             StringBuilder msg = new StringBuilder();
                             HashSet<PaymentAccount> paymentAccounts = new HashSet<>();
@@ -545,7 +546,7 @@ public class GUIUtil {
                     HBox box = new HBox();
                     box.setSpacing(20);
                     Label paymentType = new AutoTooltipLabel(
-                            method.isAsset() ? Res.get("shared.crypto") : Res.get("shared.fiat"));
+                            method.isAltcoin() ? Res.get("shared.crypto") : Res.get("shared.fiat"));
 
                     paymentType.getStyleClass().add("currency-label-small");
                     Label paymentMethod = new AutoTooltipLabel(Res.get(id));
@@ -566,33 +567,27 @@ public class GUIUtil {
         };
     }
 
-    public static void updateConfidence(TransactionConfidence confidence,
+    public static void updateConfidence(MoneroTxWallet tx,
                                         Tooltip tooltip,
                                         TxConfidenceIndicator txConfidenceIndicator) {
-        if (confidence != null) {
-            switch (confidence.getConfidenceType()) {
-                case UNKNOWN:
-                    tooltip.setText(Res.get("confidence.unknown"));
-                    txConfidenceIndicator.setProgress(0);
-                    break;
-                case PENDING:
-                    tooltip.setText(Res.get("confidence.seen", confidence.numBroadcastPeers()));
-                    txConfidenceIndicator.setProgress(-1.0);
-                    break;
-                case BUILDING:
-                    tooltip.setText(Res.get("confidence.confirmed", confidence.getDepthInBlocks()));
-                    txConfidenceIndicator.setProgress(Math.min(1, confidence.getDepthInBlocks() / 6.0));
-                    break;
-                case DEAD:
-                    tooltip.setText(Res.get("confidence.invalid"));
-                    txConfidenceIndicator.setProgress(0);
-                    break;
+        if (tx != null) {
+            if (!tx.isRelayed()) {
+                tooltip.setText(Res.get("confidence.unknown"));
+                txConfidenceIndicator.setProgress(0);
+            } else if (tx.isFailed()) {
+                tooltip.setText(Res.get("confidence.invalid"));
+                txConfidenceIndicator.setProgress(0);
+            } else if (tx.isConfirmed()) {
+                tooltip.setText(Res.get("confidence.confirmed", tx.getNumConfirmations()));
+                txConfidenceIndicator.setProgress(Math.min(1, tx.getNumConfirmations() / (double) XmrWalletService.NUM_BLOCKS_UNLOCK));
+            } else {
+                tooltip.setText(Res.get("confidence.seen", 0)); // TODO: replace with numBroadcastPeers
+                txConfidenceIndicator.setProgress(-1.0);
             }
 
             txConfidenceIndicator.setPrefSize(24, 24);
         }
     }
-
 
     public static void openWebPage(String target) {
         openWebPage(target, true, null);
@@ -699,24 +694,6 @@ public class GUIUtil {
         return t.cast(parent);
     }
 
-    public static void showTakeOfferFromUnsignedAccountWarning(CoinFormatter coinFormatter) {
-        String key = "confirmTakeOfferFromUnsignedAccount";
-        new Popup().warning(Res.get("payment.takeOfferFromUnsignedAccount.warning", coinFormatter.formatCoinWithCode(OfferRestrictions.TOLERATED_SMALL_TRADE_AMOUNT)))
-                .width(900)
-                .closeButtonText(Res.get("shared.iConfirm"))
-                .dontShowAgainId(key)
-                .show();
-    }
-
-    public static void showMakeOfferToUnsignedAccountWarning(CoinFormatter coinFormatter) {
-        String key = "confirmMakeOfferToUnsignedAccount";
-        new Popup().warning(Res.get("payment.makeOfferToUnsignedAccount.warning", coinFormatter.formatCoinWithCode(OfferRestrictions.TOLERATED_SMALL_TRADE_AMOUNT)))
-                .width(900)
-                .closeButtonText(Res.get("shared.iConfirm"))
-                .dontShowAgainId(key)
-                .show();
-    }
-
     public static void showClearXchangeWarning() {
         String key = "confirmClearXchangeRequirements";
         final String currencyName = Config.baseCurrencyNetwork().getCurrencyName();
@@ -757,17 +734,17 @@ public class GUIUtil {
         return true;
     }
 
-    public static boolean isReadyForTxBroadcastOrShowPopup(P2PService p2PService, WalletsSetup walletsSetup) {
+    public static boolean isReadyForTxBroadcastOrShowPopup(P2PService p2PService, CoreMoneroConnectionsService connectionService) {
         if (!GUIUtil.isBootstrappedOrShowPopup(p2PService)) {
             return false;
         }
 
-        if (!walletsSetup.hasSufficientPeersForBroadcast()) {
-            new Popup().information(Res.get("popup.warning.notSufficientConnectionsToBtcNetwork", walletsSetup.getMinBroadcastConnections())).show();
+        if (!connectionService.hasSufficientPeersForBroadcast()) {
+            new Popup().information(Res.get("popup.warning.notSufficientConnectionsToBtcNetwork", connectionService.getMinBroadcastConnections())).show();
             return false;
         }
 
-        if (!walletsSetup.isDownloadComplete()) {
+        if (!connectionService.isDownloadComplete()) {
             new Popup().information(Res.get("popup.warning.downloadNotComplete")).show();
             return false;
         }
@@ -775,8 +752,8 @@ public class GUIUtil {
         return true;
     }
 
-    public static boolean isChainHeightSyncedWithinToleranceOrShowPopup(WalletsSetup walletsSetup) {
-        if (!walletsSetup.isChainHeightSyncedWithinTolerance()) {
+    public static boolean isChainHeightSyncedWithinToleranceOrShowPopup(CoreMoneroConnectionsService connectionService) {
+        if (!connectionService.isChainHeightSyncedWithinTolerance()) {
             new Popup().information(Res.get("popup.warning.chainNotSynced")).show();
             return false;
         }
@@ -786,15 +763,9 @@ public class GUIUtil {
 
     public static boolean canCreateOrTakeOfferOrShowPopup(User user, Navigation navigation) {
 
-        // TODO (woodser): use refund agents to dispute arbitration?
-        if (!user.hasAcceptedRefundAgents()) {
-            log.warn("There are no refund agents available"); // TODO (woodser): refund agents changing from [4444] to [] causing this error
-            //new Popup().warning(Res.get("popup.warning.noArbitratorsAvailable")).show();
-            //return false;
-        }
-
-        if (!user.hasAcceptedMediators()) {
-            new Popup().warning(Res.get("popup.warning.noMediatorsAvailable")).show();
+        if (!user.hasAcceptedArbitrators()) {
+            log.warn("There are no arbitrators available");
+            new Popup().warning(Res.get("popup.warning.noArbitratorsAvailable")).show();
             return false;
         }
 
@@ -1098,5 +1069,36 @@ public class GUIUtil {
             default:
                 return result.name();
         }
+    }
+
+    public static ScrollPane createScrollPane() {
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+        AnchorPane.setLeftAnchor(scrollPane, 0d);
+        AnchorPane.setTopAnchor(scrollPane, 0d);
+        AnchorPane.setRightAnchor(scrollPane, 0d);
+        AnchorPane.setBottomAnchor(scrollPane, 0d);
+        return scrollPane;
+    }
+
+    public static void setDefaultTwoColumnConstraintsForGridPane(GridPane gridPane) {
+        ColumnConstraints columnConstraints1 = new ColumnConstraints();
+        columnConstraints1.setHalignment(HPos.RIGHT);
+        columnConstraints1.setHgrow(Priority.NEVER);
+        columnConstraints1.setMinWidth(200);
+        ColumnConstraints columnConstraints2 = new ColumnConstraints();
+        columnConstraints2.setHgrow(Priority.ALWAYS);
+        gridPane.getColumnConstraints().addAll(columnConstraints1, columnConstraints2);
+    }
+
+    public static void updateTopAltcoin(Preferences preferences) {
+        TradeCurrency tradeCurrency = preferences.getPreferredTradeCurrency();
+        if (CurrencyUtil.isFiatCurrency(tradeCurrency.getCode())) {
+            return;
+        }
+        TOP_ALTCOIN = tradeCurrency;
     }
 }

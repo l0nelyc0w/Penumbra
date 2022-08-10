@@ -192,9 +192,9 @@ public class NotificationCenter {
                 message = Res.get("notification.trade.accepted", role);
             }
 
-            if (trade instanceof BuyerTrade && phase.ordinal() == Trade.Phase.DEPOSIT_CONFIRMED.ordinal())
+            if (trade instanceof BuyerTrade && phase.ordinal() == Trade.Phase.DEPOSIT_UNLOCKED.ordinal())
                 message = Res.get("notification.trade.confirmed");
-            else if (trade instanceof SellerTrade && phase.ordinal() == Trade.Phase.FIAT_SENT.ordinal())
+            else if (trade instanceof SellerTrade && phase.ordinal() == Trade.Phase.PAYMENT_SENT.ordinal())
                 message = Res.get("notification.trade.paymentStarted");
         }
 
@@ -228,8 +228,8 @@ public class NotificationCenter {
 
     private void onDisputeStateChanged(Trade trade, Trade.DisputeState disputeState) {
         String message = null;
-        if (refundManager.findOwnDispute(trade.getId()).isPresent()) {
-            String disputeOrTicket = refundManager.findOwnDispute(trade.getId()).get().isSupportTicket() ?
+        if (refundManager.findDispute(trade.getId()).isPresent()) {
+            String disputeOrTicket = refundManager.findDispute(trade.getId()).get().isSupportTicket() ?
                     Res.get("shared.supportTicket") :
                     Res.get("shared.dispute");
             switch (disputeState) {
@@ -253,8 +253,8 @@ public class NotificationCenter {
             if (message != null) {
                 goToSupport(trade, message, false);
             }
-        } else if (mediationManager.findOwnDispute(trade.getId()).isPresent()) {
-            String disputeOrTicket = mediationManager.findOwnDispute(trade.getId()).get().isSupportTicket() ?
+        } else if (mediationManager.findDispute(trade.getId()).isPresent()) {
+            String disputeOrTicket = mediationManager.findDispute(trade.getId()).get().isSupportTicket() ?
                     Res.get("shared.supportTicket") :
                     Res.get("shared.mediationCase");
             switch (disputeState) {

@@ -17,7 +17,8 @@
 
 package bisq.core.support.traderchat;
 
-import bisq.core.btc.setup.WalletsSetup;
+import bisq.core.api.CoreMoneroConnectionsService;
+import bisq.core.api.CoreNotificationService;
 import bisq.core.locale.Res;
 import bisq.core.support.SupportManager;
 import bisq.core.support.SupportType;
@@ -31,6 +32,7 @@ import bisq.network.p2p.NodeAddress;
 import bisq.network.p2p.P2PService;
 
 import bisq.common.crypto.PubKeyRing;
+import bisq.common.crypto.PubKeyRingProvider;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -46,7 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 @Singleton
 public class TraderChatManager extends SupportManager {
     private final TradeManager tradeManager;
-    private final PubKeyRing pubKeyRing;
+    private final PubKeyRingProvider pubKeyRingProvider;
 
 
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -55,12 +57,13 @@ public class TraderChatManager extends SupportManager {
 
     @Inject
     public TraderChatManager(P2PService p2PService,
-                             WalletsSetup walletsSetup,
+                             CoreMoneroConnectionsService connectionService,
+                             CoreNotificationService notificationService,
                              TradeManager tradeManager,
-                             PubKeyRing pubKeyRing) {
-        super(p2PService, walletsSetup);
+                             PubKeyRingProvider pubKeyRingProvider) {
+        super(p2PService, connectionService, notificationService);
         this.tradeManager = tradeManager;
-        this.pubKeyRing = pubKeyRing;
+        this.pubKeyRingProvider = pubKeyRingProvider;
     }
 
 
@@ -80,9 +83,9 @@ public class TraderChatManager extends SupportManager {
 
     @Override
     public NodeAddress getPeerNodeAddress(ChatMessage message) {
-        return tradeManager.getTradeById(message.getTradeId()).map(trade -> {
+        return tradeManager.getOpenTrade(message.getTradeId()).map(trade -> {
             if (trade.getContract() != null) {
-                return trade.getContract().getPeersNodeAddress(pubKeyRing);
+                return trade.getContract().getPeersNodeAddress(pubKeyRingProvider.get());
             } else {
                 return null;
             }
@@ -91,9 +94,9 @@ public class TraderChatManager extends SupportManager {
 
     @Override
     public PubKeyRing getPeerPubKeyRing(ChatMessage message) {
-        return tradeManager.getTradeById(message.getTradeId()).map(trade -> {
+        return tradeManager.getOpenTrade(message.getTradeId()).map(trade -> {
             if (trade.getContract() != null) {
-                return trade.getContract().getPeersPubKeyRing(pubKeyRing);
+                return trade.getContract().getPeersPubKeyRing(pubKeyRingProvider.get());
             } else {
                 return null;
             }
@@ -109,12 +112,12 @@ public class TraderChatManager extends SupportManager {
 
     @Override
     public boolean channelOpen(ChatMessage message) {
-        return tradeManager.getTradeById(message.getTradeId()).isPresent();
+        return tradeManager.getOpenTrade(message.getTradeId()).isPresent();
     }
 
     @Override
     public void addAndPersistChatMessage(ChatMessage message) {
-        tradeManager.getTradeById(message.getTradeId()).ifPresent(trade -> {
+        tradeManager.getOpenTrade(message.getTradeId()).ifPresent(trade -> {
             ObservableList<ChatMessage> chatMessages = trade.getChatMessages();
             if (chatMessages.stream().noneMatch(m -> m.getUid().equals(message.getUid()))) {
                 if (chatMessages.isEmpty()) {
@@ -139,11 +142,13 @@ public class TraderChatManager extends SupportManager {
     // API
     ///////////////////////////////////////////////////////////////////////////////////////////
 
+    @Override
     public void onAllServicesInitialized() {
         super.onAllServicesInitialized();
         tryApplyMessages();
     }
 
+    @Override
     public void onSupportMessage(SupportMessage message) {
         if (canProcessMessage(message)) {
             log.info("Received {} with tradeId {} and uid {}",

@@ -78,8 +78,8 @@ public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
                     processModel.getOfferId(),
                     request.getSenderNodeAddress(),
                     request.getPubKeyRing(),
-                    trade.getTradeAmount().value,
-                    trade.getTradePrice().getValue(),
+                    trade.getAmount().value,
+                    trade.getPrice().getValue(),
                     trade.getTakerFee().getValue(),
                     request.getAccountId(),
                     request.getPaymentAccountId(),
@@ -101,10 +101,11 @@ public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
             TradeListener listener = new TradeListener() {
                 @Override
                 public void onAckMessage(AckMessage ackMessage, NodeAddress sender) {
-                    if (sender.equals(trade.getMakerNodeAddress()) && ackMessage.getSourceMsgClassName().equals(InitTradeRequest.class.getSimpleName())) {
+                    if (sender.equals(trade.getMakerNodeAddress()) &&
+                            ackMessage.getSourceMsgClassName().equals(InitTradeRequest.class.getSimpleName()) &&
+                            ackMessage.getSourceUid().equals(makerRequest.getUid())) {
                         trade.removeListener(this);
                         if (ackMessage.isSuccess()) sendInitMultisigRequests();
-                        else failed("Received unsuccessful ack for InitTradeRequest from maker"); // TODO (woodser): maker should not do this, penalize them by broadcasting reserve tx?
                     }
                 }
             };
@@ -120,6 +121,7 @@ public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
                         @Override
                         public void onArrived() {
                             log.info("{} arrived at maker: offerId={}; uid={}", makerRequest.getClass().getSimpleName(), makerRequest.getTradeId(), makerRequest.getUid());
+                            complete();
                         }
                         @Override
                         public void onFault(String errorMessage) {
@@ -172,8 +174,6 @@ public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
                     @Override
                     public void onArrived() {
                         log.info("{} arrived at arbitrator: offerId={}; uid={}", initMultisigRequest.getClass().getSimpleName(), initMultisigRequest.getTradeId(), initMultisigRequest.getUid());
-                        makerAck = true;
-                        checkComplete();
                     }
                     @Override
                     public void onFault(String errorMessage) {
@@ -194,8 +194,6 @@ public class ArbitratorSendsInitTradeAndMultisigRequests extends TradeTask {
                     @Override
                     public void onArrived() {
                         log.info("{} arrived at peer: offerId={}; uid={}", initMultisigRequest.getClass().getSimpleName(), initMultisigRequest.getTradeId(), initMultisigRequest.getUid());
-                        takerAck = true;
-                        checkComplete();
                     }
                     @Override
                     public void onFault(String errorMessage) {

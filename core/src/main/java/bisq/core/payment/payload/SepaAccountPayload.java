@@ -53,7 +53,7 @@ public final class SepaAccountPayload extends CountryBasedPaymentAccountPayload 
     private String email = ""; // not used anymore but need to keep it for backward compatibility, must not be null but empty string, otherwise hash check fails for contract
 
     // Don't use a set here as we need a deterministic ordering, otherwise the contract hash does not match
-    private final List<String> acceptedCountryCodes;
+    private final List<String> persistedAcceptedCountryCodes = new ArrayList<>();
 
     public SepaAccountPayload(String paymentMethod, String id, List<Country> acceptedCountries) {
         super(paymentMethod, id);
@@ -72,16 +72,17 @@ public final class SepaAccountPayload extends CountryBasedPaymentAccountPayload 
     private SepaAccountPayload(String paymentMethodName,
                                String id,
                                String countryCode,
+                               List<String> acceptedCountryCodes,
                                String holderName,
                                String iban,
                                String bic,
                                String email,
-                               List<String> acceptedCountryCodes,
                                long maxTradePeriod,
                                Map<String, String> excludeFromJsonDataMap) {
         super(paymentMethodName,
                 id,
                 countryCode,
+                acceptedCountryCodes,
                 maxTradePeriod,
                 excludeFromJsonDataMap);
 
@@ -90,6 +91,7 @@ public final class SepaAccountPayload extends CountryBasedPaymentAccountPayload 
         this.bic = bic;
         this.email = email;
         this.acceptedCountryCodes = acceptedCountryCodes;
+        persistedAcceptedCountryCodes.addAll(acceptedCountryCodes);
     }
 
     @Override
@@ -99,8 +101,7 @@ public final class SepaAccountPayload extends CountryBasedPaymentAccountPayload 
                         .setHolderName(holderName)
                         .setIban(iban)
                         .setBic(bic)
-                        .setEmail(email)
-                        .addAllAcceptedCountryCodes(acceptedCountryCodes);
+                        .setEmail(email);
         final protobuf.CountryBasedPaymentAccountPayload.Builder countryBasedPaymentAccountPayload = getPaymentAccountPayloadBuilder()
                 .getCountryBasedPaymentAccountPayloadBuilder()
                 .setSepaAccountPayload(builder);
@@ -115,11 +116,11 @@ public final class SepaAccountPayload extends CountryBasedPaymentAccountPayload 
         return new SepaAccountPayload(proto.getPaymentMethodId(),
                 proto.getId(),
                 countryBasedPaymentAccountPayload.getCountryCode(),
+                new ArrayList<>(countryBasedPaymentAccountPayload.getAcceptedCountryCodesList()),
                 sepaAccountPayloadPB.getHolderName(),
                 sepaAccountPayloadPB.getIban(),
                 sepaAccountPayloadPB.getBic(),
                 sepaAccountPayloadPB.getEmail(),
-                new ArrayList<>(sepaAccountPayloadPB.getAcceptedCountryCodesList()),
                 proto.getMaxTradePeriod(),
                 new HashMap<>(proto.getExcludeFromJsonDataMap()));
     }
@@ -129,6 +130,12 @@ public final class SepaAccountPayload extends CountryBasedPaymentAccountPayload 
     // API
     ///////////////////////////////////////////////////////////////////////////////////////////
 
+    @Override
+    public void setAcceptedCountryCodes(List<String> acceptedCountryCodes) {
+        this.acceptedCountryCodes.clear();
+        for (String countryCode : acceptedCountryCodes) this.acceptedCountryCodes.add(countryCode);
+    }
+    
     public void addAcceptedCountry(String countryCode) {
         if (!acceptedCountryCodes.contains(countryCode))
             acceptedCountryCodes.add(countryCode);
@@ -136,6 +143,16 @@ public final class SepaAccountPayload extends CountryBasedPaymentAccountPayload 
 
     public void removeAcceptedCountry(String countryCode) {
         acceptedCountryCodes.remove(countryCode);
+    }
+
+    public void onPersistChanges() {
+        persistedAcceptedCountryCodes.clear();
+        persistedAcceptedCountryCodes.addAll(acceptedCountryCodes);
+    }
+
+    public void revertChanges() {
+        acceptedCountryCodes.clear();
+        acceptedCountryCodes.addAll(persistedAcceptedCountryCodes);
     }
 
     @Override

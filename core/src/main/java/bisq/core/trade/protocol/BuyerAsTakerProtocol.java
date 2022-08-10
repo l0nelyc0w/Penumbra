@@ -21,6 +21,7 @@ package bisq.core.trade.protocol;
 import bisq.core.offer.Offer;
 import bisq.core.trade.BuyerAsTakerTrade;
 import bisq.core.trade.Trade;
+import bisq.core.trade.Trade.State;
 import bisq.core.trade.handlers.TradeResultHandler;
 import bisq.core.trade.messages.DelayedPayoutTxSignatureRequest;
 import bisq.core.trade.messages.DepositResponse;
@@ -28,7 +29,7 @@ import bisq.core.trade.messages.DepositTxAndDelayedPayoutTxMessage;
 import bisq.core.trade.messages.InitMultisigRequest;
 import bisq.core.trade.messages.InputsForDepositTxResponse;
 import bisq.core.trade.messages.PaymentAccountPayloadRequest;
-import bisq.core.trade.messages.PayoutTxPublishedMessage;
+import bisq.core.trade.messages.PaymentReceivedMessage;
 import bisq.core.trade.messages.SignContractRequest;
 import bisq.core.trade.messages.SignContractResponse;
 import bisq.core.trade.messages.TradeMessage;
@@ -56,11 +57,11 @@ import bisq.core.trade.protocol.tasks.taker.TakerSendsInitTradeRequestToArbitrat
 import bisq.core.trade.protocol.tasks.taker.TakerVerifyMakerFeePayment;
 import bisq.core.util.Validator;
 import bisq.network.p2p.NodeAddress;
-
 import bisq.common.handlers.ErrorMessageHandler;
 import bisq.common.handlers.ResultHandler;
 
 import lombok.extern.slf4j.Slf4j;
+import org.fxmisc.easybind.EasyBind;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -83,10 +84,11 @@ public class BuyerAsTakerProtocol extends BuyerProtocol implements TakerProtocol
 
 
     ///////////////////////////////////////////////////////////////////////////////////////////
-    // User interaction: Take offer
+    // Take offer
     ///////////////////////////////////////////////////////////////////////////////////////////
 
-    // TODO (woodser): this implementation is duplicated with SellerAsTakerProtocol
+    // TODO (woodser): these methods are duplicated with SellerAsTakerProtocol due to single inheritance
+
     @Override
     public void onTakeOffer(TradeResultHandler tradeResultHandler, ErrorMessageHandler errorMessageHandler) {
       System.out.println("onTakeOffer()");
@@ -245,7 +247,7 @@ public class BuyerAsTakerProtocol extends BuyerProtocol implements TakerProtocol
 
     // We keep the handler here in as well to make it more transparent which messages we expect
     @Override
-    protected void handle(PayoutTxPublishedMessage message, NodeAddress peer) {
+    protected void handle(PaymentReceivedMessage message, NodeAddress peer) {
         super.handle(message, peer);
     }
 

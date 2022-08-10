@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Hashes and tag of our Monero testing binaries at https://github.com/haveno-dex/monero/releases
+MONERO_HASH_MAC="9188d0ee6111c5f68da0002bbbfc3ecf1ad4c053e99495b17652e2b6bc15ef49"
+MONERO_HASH_LINUX="ac5b335bbb5ee82e64d13898b951b8a3e1a9bd39b0dfbc3b08ea6be0d16d82f1"
+MONERO_TAG="testing6"
+# Hashes and version of bitcoin core: https://bitcoin.org/bin/
+#BTC_HASH_MAC="1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7"
+#BTC_HASH_LINUX="366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b"
+#BTC_VERSION=0.21.1
+
 is_mac() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
         return 0
@@ -43,9 +52,9 @@ check_monero() {
 # Verify hashes of bitcoind and bitcoin-cli
 check_bitcoin() {
     if is_mac; then
-        shasum -a 256 -c <<<'1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7 *bitcoin-'"${btcversion}"'-'"${btc_platform}"'.tar.gz' || exit 1
+        shasum -a 256 -c <<< ''"${BTC_HASH_MAC}"' *bitcoin-'"${BTC_VERSION}"'-'"${btc_platform}"'.tar.gz' || exit 1
     else
-        echo "366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b bitcoin-${btcversion}-${btc_platform}.tar.gz" | sha256sum -c || exit 1
+        echo "${BTC_HASH_LINUX} bitcoin-${BTC_VERSION}-${btc_platform}.tar.gz" | sha256sum -c || exit 1
     fi
 
     echo "-> Bitcoin binaries downloaded and verified"
@@ -53,6 +62,13 @@ check_bitcoin() {
 
 # Download Monero bins
 dw_monero() {
+
+    extract_monero() {
+        echo "-> extracting monerod and monero-wallet-rpc from archive" && \
+        tar -xzf "monero-bins-haveno-${platform}.tar.gz" && \
+        chmod +x {monerod,monero-wallet-rpc} || exit 1
+    }
+
     if is_mac; then
         platform="mac"
     else
@@ -72,26 +88,23 @@ dw_monero() {
 
 # Download Bitcoin bins
 dw_bitcoin() {
-    btcversion=0.21.1
-
     if is_mac; then
         btc_platform="osx64"
     else
         btc_platform="x86_64-linux-gnu"
     fi
 
-    if [ -f bitcoin-${btcversion}-${btc_platform}.tar.gz ]; then
+    if [ -f bitcoin-${BTC_VERSION}-${btc_platform}.tar.gz ]; then
         check_bitcoin
     else
-        dw_source https://bitcoin.org/bin/bitcoin-core-${btcversion}/bitcoin-${btcversion}-${btc_platform}.tar.gz || { echo "! something went wrong while downloading the Bitcoin binaries. Exiting..."; exit 1; } && \
+        dw_source https://bitcoin.org/bin/bitcoin-core-${BTC_VERSION}/bitcoin-${BTC_VERSION}-${btc_platform}.tar.gz || { echo "! something went wrong while downloading the Bitcoin binaries. Exiting..."; exit 1; } && \
         check_bitcoin
     fi
 
-    tar -xzf bitcoin-${btcversion}-${btc_platform}.tar.gz && \
-    cp bitcoin-${btcversion}/bin/{bitcoin-cli,bitcoind} . && \
-    rm -r bitcoin-${btcversion} || exit 1
+    tar -xzf bitcoin-${BTC_VERSION}-${btc_platform}.tar.gz && \
+    cp bitcoin-${BTC_VERSION}/bin/{bitcoin-cli,bitcoind} . && \
+    rm -r bitcoin-${BTC_VERSION} || exit 1
 }
-
 
 while true; do
     cd .localnet

@@ -26,7 +26,7 @@ import bisq.core.btc.model.XmrAddressEntry;
 import bisq.core.offer.Offer;
 import bisq.core.offer.messages.SignOfferRequest;
 import bisq.core.offer.placeoffer.PlaceOfferModel;
-import bisq.core.support.dispute.mediation.mediator.Mediator;
+import bisq.core.support.dispute.arbitration.arbitrator.Arbitrator;
 import bisq.network.p2p.AckMessage;
 import bisq.network.p2p.DecryptedDirectMessageListener;
 import bisq.network.p2p.DecryptedMessageWithPubKey;
@@ -93,6 +93,7 @@ public class MakerSendsSignOfferRequest extends Task<PlaceOfferModel> {
                     if (!sender.equals(arbitrator.getNodeAddress())) return;
                     AckMessage ackMessage = (AckMessage) decryptedMessageWithPubKey.getNetworkEnvelope();
                     if (!ackMessage.getSourceMsgClassName().equals(SignOfferRequest.class.getSimpleName())) return;
+                    if (!ackMessage.getSourceUid().equals(request.getUid())) return;
                     if (ackMessage.isSuccess()) {
                         offer.setState(Offer.State.OFFER_FEE_RESERVED);
                         model.getP2PService().removeDecryptedDirectMessageListener(this);

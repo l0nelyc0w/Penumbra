@@ -17,12 +17,63 @@
 
 package bisq.core.payment.payload;
 
+import bisq.core.payment.AchTransferAccount;
+import bisq.core.payment.AdvancedCashAccount;
+import bisq.core.payment.AliPayAccount;
+import bisq.core.payment.AmazonGiftCardAccount;
+import bisq.core.payment.AustraliaPayidAccount;
+import bisq.core.payment.BizumAccount;
+import bisq.core.payment.CapitualAccount;
+import bisq.core.payment.CashByMailAccount;
+import bisq.core.payment.CashDepositAccount;
+import bisq.core.payment.CelPayAccount;
+import bisq.core.payment.ClearXchangeAccount;
+import bisq.core.payment.DomesticWireTransferAccount;
+import bisq.core.payment.F2FAccount;
+import bisq.core.payment.FasterPaymentsAccount;
+import bisq.core.payment.HalCashAccount;
+import bisq.core.payment.ImpsAccount;
+import bisq.core.payment.InteracETransferAccount;
+import bisq.core.payment.JapanBankAccount;
+import bisq.core.payment.MoneseAccount;
+import bisq.core.payment.MoneyBeamAccount;
+import bisq.core.payment.MoneyGramAccount;
+import bisq.core.payment.NationalBankAccount;
+import bisq.core.payment.NeftAccount;
+import bisq.core.payment.NequiAccount;
+import bisq.core.payment.PaxumAccount;
+import bisq.core.payment.PayseraAccount;
+import bisq.core.payment.PaytmAccount;
+import bisq.core.payment.PerfectMoneyAccount;
+import bisq.core.payment.PixAccount;
+import bisq.core.payment.PopmoneyAccount;
+import bisq.core.payment.PromptPayAccount;
+import bisq.core.payment.RevolutAccount;
+import bisq.core.payment.RtgsAccount;
+import bisq.core.payment.SameBankAccount;
+import bisq.core.payment.SatispayAccount;
+import bisq.core.payment.SepaAccount;
+import bisq.core.payment.SepaInstantAccount;
+import bisq.core.payment.SpecificBanksAccount;
+import bisq.core.payment.StrikeAccount;
+import bisq.core.payment.SwiftAccount;
+import bisq.core.payment.SwishAccount;
+import bisq.core.payment.TikkieAccount;
 import bisq.core.payment.TradeLimits;
-
+import bisq.core.payment.TransferwiseAccount;
+import bisq.core.payment.TransferwiseUsdAccount;
+import bisq.core.payment.USPostalMoneyOrderAccount;
+import bisq.core.payment.UpholdAccount;
+import bisq.core.payment.UpiAccount;
+import bisq.core.payment.VerseAccount;
+import bisq.core.payment.WeChatPayAccount;
+import bisq.core.payment.WesternUnionAccount;
+import bisq.core.util.ParsingUtils;
 import bisq.core.locale.CurrencyUtil;
 import bisq.core.locale.Res;
 import bisq.core.locale.TradeCurrency;
-
+import bisq.common.config.BaseCurrencyNetwork;
+import bisq.common.config.Config;
 import bisq.common.proto.persistable.PersistablePayload;
 
 import org.bitcoinj.core.Coin;
@@ -30,8 +81,9 @@ import org.bitcoinj.core.Coin;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-
+import java.util.stream.Collectors;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
@@ -63,6 +115,7 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
     private static final Coin DEFAULT_TRADE_LIMIT_LOW_RISK = Coin.parseCoin("50");
     private static final Coin DEFAULT_TRADE_LIMIT_MID_RISK = Coin.parseCoin("25");
     private static final Coin DEFAULT_TRADE_LIMIT_HIGH_RISK = Coin.parseCoin("12.5");
+    private static final double MAX_FIAT_STAGENET_XMR = 1.0; // denominated in XMR
 
     public static final String UPHOLD_ID = "UPHOLD";
     public static final String MONEY_BEAM_ID = "MONEY_BEAM";
@@ -81,7 +134,10 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
     public static final String ALI_PAY_ID = "ALI_PAY";
     public static final String WECHAT_PAY_ID = "WECHAT_PAY";
     public static final String CLEAR_X_CHANGE_ID = "CLEAR_X_CHANGE";
-    public static final String CHASE_QUICK_PAY_ID = "CHASE_QUICK_PAY";
+
+    @Deprecated
+    public static final String CHASE_QUICK_PAY_ID = "CHASE_QUICK_PAY"; // Removed due to QuickPay becoming Zelle
+
     public static final String INTERAC_E_TRANSFER_ID = "INTERAC_E_TRANSFER";
     public static final String US_POSTAL_MONEY_ORDER_ID = "US_POSTAL_MONEY_ORDER";
     public static final String CASH_DEPOSIT_ID = "CASH_DEPOSIT";
@@ -93,9 +149,30 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
     public static final String PROMPT_PAY_ID = "PROMPT_PAY";
     public static final String ADVANCED_CASH_ID = "ADVANCED_CASH";
     public static final String TRANSFERWISE_ID = "TRANSFERWISE";
+    public static final String TRANSFERWISE_USD_ID = "TRANSFERWISE_USD";
+    public static final String PAYSERA_ID = "PAYSERA";
+    public static final String PAXUM_ID = "PAXUM";
+    public static final String NEFT_ID = "NEFT";
+    public static final String RTGS_ID = "RTGS";
+    public static final String IMPS_ID = "IMPS";
+    public static final String UPI_ID = "UPI";
+    public static final String PAYTM_ID = "PAYTM";
+    public static final String NEQUI_ID = "NEQUI";
+    public static final String BIZUM_ID = "BIZUM";
+    public static final String PIX_ID = "PIX";
     public static final String AMAZON_GIFT_CARD_ID = "AMAZON_GIFT_CARD";
     public static final String BLOCK_CHAINS_INSTANT_ID = "BLOCK_CHAINS_INSTANT";
     public static final String CASH_BY_MAIL_ID = "CASH_BY_MAIL";
+    public static final String CAPITUAL_ID = "CAPITUAL";
+    public static final String CELPAY_ID = "CELPAY";
+    public static final String MONESE_ID = "MONESE";
+    public static final String SATISPAY_ID = "SATISPAY";
+    public static final String TIKKIE_ID = "TIKKIE";
+    public static final String VERSE_ID = "VERSE";
+    public static final String STRIKE_ID = "STRIKE";
+    public static final String SWIFT_ID = "SWIFT";
+    public static final String ACH_TRANSFER_ID = "ACH_TRANSFER";
+    public static final String DOMESTIC_WIRE_TRANSFER_ID = "DOMESTIC_WIRE_TRANSFER";
 
     // Cannot be deleted as it would break old trade history entries
     @Deprecated
@@ -134,9 +211,31 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
     public static PaymentMethod PROMPT_PAY;
     public static PaymentMethod ADVANCED_CASH;
     public static PaymentMethod TRANSFERWISE;
+    public static PaymentMethod TRANSFERWISE_USD;
+    public static PaymentMethod PAYSERA;
+    public static PaymentMethod PAXUM;
+    public static PaymentMethod NEFT;
+    public static PaymentMethod RTGS;
+    public static PaymentMethod IMPS;
+    public static PaymentMethod UPI;
+    public static PaymentMethod PAYTM;
+    public static PaymentMethod NEQUI;
+    public static PaymentMethod BIZUM;
+    public static PaymentMethod PIX;
     public static PaymentMethod AMAZON_GIFT_CARD;
     public static PaymentMethod BLOCK_CHAINS_INSTANT;
     public static PaymentMethod CASH_BY_MAIL;
+    public static PaymentMethod CAPITUAL;
+    public static PaymentMethod CELPAY;
+    public static PaymentMethod MONESE;
+    public static PaymentMethod SATISPAY;
+    public static PaymentMethod TIKKIE;
+    public static PaymentMethod VERSE;
+    public static PaymentMethod STRIKE;
+    public static PaymentMethod SWIFT;
+    public static PaymentMethod ACH_TRANSFER;
+    public static PaymentMethod DOMESTIC_WIRE_TRANSFER;
+    public static PaymentMethod BSQ_SWAP;
 
     // Cannot be deleted as it would break old trade history entries
     @Deprecated
@@ -149,65 +248,107 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
     // The limit and duration assignment must not be changed as that could break old offers (if amount would be higher
     // than new trade limit) and violate the maker expectation when he created the offer (duration).
     @Getter
-    private final static List<PaymentMethod> paymentMethods = new ArrayList<>(Arrays.asList(
+    public final static List<PaymentMethod> paymentMethods = new ArrayList<>(Arrays.asList(
             // EUR
-            SEPA = new PaymentMethod(SEPA_ID, 6 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
-            SEPA_INSTANT = new PaymentMethod(SEPA_INSTANT_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
-            MONEY_BEAM = new PaymentMethod(MONEY_BEAM_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
+            HAL_CASH = new PaymentMethod(HAL_CASH_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK, getAssetCodes(HalCashAccount.SUPPORTED_CURRENCIES)),
+            SEPA = new PaymentMethod(SEPA_ID, 6 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(SepaAccount.SUPPORTED_CURRENCIES)),
+            SEPA_INSTANT = new PaymentMethod(SEPA_INSTANT_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(SepaInstantAccount.SUPPORTED_CURRENCIES)),
+            MONEY_BEAM = new PaymentMethod(MONEY_BEAM_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(MoneyBeamAccount.SUPPORTED_CURRENCIES)),
 
             // UK
-            FASTER_PAYMENTS = new PaymentMethod(FASTER_PAYMENTS_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
+            FASTER_PAYMENTS = new PaymentMethod(FASTER_PAYMENTS_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(FasterPaymentsAccount.SUPPORTED_CURRENCIES)),
 
             // Sweden
-            SWISH = new PaymentMethod(SWISH_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK),
+            SWISH = new PaymentMethod(SWISH_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK, getAssetCodes(SwishAccount.SUPPORTED_CURRENCIES)),
 
             // US
-            CLEAR_X_CHANGE = new PaymentMethod(CLEAR_X_CHANGE_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
+            CLEAR_X_CHANGE = new PaymentMethod(CLEAR_X_CHANGE_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(ClearXchangeAccount.SUPPORTED_CURRENCIES)),
 
-            POPMONEY = new PaymentMethod(POPMONEY_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
-            CHASE_QUICK_PAY = new PaymentMethod(CHASE_QUICK_PAY_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
-            US_POSTAL_MONEY_ORDER = new PaymentMethod(US_POSTAL_MONEY_ORDER_ID, 8 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
+            POPMONEY = new PaymentMethod(POPMONEY_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(PopmoneyAccount.SUPPORTED_CURRENCIES)),
+            US_POSTAL_MONEY_ORDER = new PaymentMethod(US_POSTAL_MONEY_ORDER_ID, 8 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(USPostalMoneyOrderAccount.SUPPORTED_CURRENCIES)),
 
             // Canada
-            INTERAC_E_TRANSFER = new PaymentMethod(INTERAC_E_TRANSFER_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
+            INTERAC_E_TRANSFER = new PaymentMethod(INTERAC_E_TRANSFER_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(InteracETransferAccount.SUPPORTED_CURRENCIES)),
 
             // Global
-            CASH_DEPOSIT = new PaymentMethod(CASH_DEPOSIT_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
-            CASH_BY_MAIL = new PaymentMethod(CASH_BY_MAIL_ID, 8 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
-            MONEY_GRAM = new PaymentMethod(MONEY_GRAM_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_MID_RISK),
-            WESTERN_UNION = new PaymentMethod(WESTERN_UNION_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_MID_RISK),
-            NATIONAL_BANK = new PaymentMethod(NATIONAL_BANK_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
-            SAME_BANK = new PaymentMethod(SAME_BANK_ID, 2 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
-            SPECIFIC_BANKS = new PaymentMethod(SPECIFIC_BANKS_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
-            HAL_CASH = new PaymentMethod(HAL_CASH_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK),
-            F2F = new PaymentMethod(F2F_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_LOW_RISK),
-            AMAZON_GIFT_CARD = new PaymentMethod(AMAZON_GIFT_CARD_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
+            CASH_DEPOSIT = new PaymentMethod(CASH_DEPOSIT_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(CashDepositAccount.SUPPORTED_CURRENCIES)),
+            CASH_BY_MAIL = new PaymentMethod(CASH_BY_MAIL_ID, 8 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(CashByMailAccount.SUPPORTED_CURRENCIES)),
+            MONEY_GRAM = new PaymentMethod(MONEY_GRAM_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_MID_RISK, getAssetCodes(MoneyGramAccount.SUPPORTED_CURRENCIES)),
+            WESTERN_UNION = new PaymentMethod(WESTERN_UNION_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_MID_RISK, getAssetCodes(WesternUnionAccount.SUPPORTED_CURRENCIES)),
+            NATIONAL_BANK = new PaymentMethod(NATIONAL_BANK_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(NationalBankAccount.SUPPORTED_CURRENCIES)),
+            SAME_BANK = new PaymentMethod(SAME_BANK_ID, 2 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(SameBankAccount.SUPPORTED_CURRENCIES)),
+            SPECIFIC_BANKS = new PaymentMethod(SPECIFIC_BANKS_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(SpecificBanksAccount.SUPPORTED_CURRENCIES)),
+            F2F = new PaymentMethod(F2F_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_LOW_RISK, getAssetCodes(F2FAccount.SUPPORTED_CURRENCIES)),
+            AMAZON_GIFT_CARD = new PaymentMethod(AMAZON_GIFT_CARD_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(AmazonGiftCardAccount.SUPPORTED_CURRENCIES)),
 
             // Trans national
-            UPHOLD = new PaymentMethod(UPHOLD_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
-            REVOLUT = new PaymentMethod(REVOLUT_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
-            PERFECT_MONEY = new PaymentMethod(PERFECT_MONEY_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK),
-            ADVANCED_CASH = new PaymentMethod(ADVANCED_CASH_ID, DAY, DEFAULT_TRADE_LIMIT_VERY_LOW_RISK),
-            TRANSFERWISE = new PaymentMethod(TRANSFERWISE_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK),
+            UPHOLD = new PaymentMethod(UPHOLD_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(UpholdAccount.SUPPORTED_CURRENCIES)),
+            REVOLUT = new PaymentMethod(REVOLUT_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(RevolutAccount.SUPPORTED_CURRENCIES)),
+            PERFECT_MONEY = new PaymentMethod(PERFECT_MONEY_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK, getAssetCodes(PerfectMoneyAccount.SUPPORTED_CURRENCIES)),
+            ADVANCED_CASH = new PaymentMethod(ADVANCED_CASH_ID, DAY, DEFAULT_TRADE_LIMIT_VERY_LOW_RISK, getAssetCodes(AdvancedCashAccount.SUPPORTED_CURRENCIES)),
+            TRANSFERWISE = new PaymentMethod(TRANSFERWISE_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(TransferwiseAccount.SUPPORTED_CURRENCIES)),
+            TRANSFERWISE_USD = new PaymentMethod(TRANSFERWISE_USD_ID, 4 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(TransferwiseUsdAccount.SUPPORTED_CURRENCIES)),
+            PAYSERA = new PaymentMethod(PAYSERA_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(PayseraAccount.SUPPORTED_CURRENCIES)),
+            PAXUM = new PaymentMethod(PAXUM_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(PaxumAccount.SUPPORTED_CURRENCIES)),
+            NEFT = new PaymentMethod(NEFT_ID, DAY, Coin.parseCoin("0.02"), getAssetCodes(NeftAccount.SUPPORTED_CURRENCIES)),
+            RTGS = new PaymentMethod(RTGS_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(RtgsAccount.SUPPORTED_CURRENCIES)),
+            IMPS = new PaymentMethod(IMPS_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(ImpsAccount.SUPPORTED_CURRENCIES)),
+            UPI = new PaymentMethod(UPI_ID, DAY, Coin.parseCoin("0.05"), getAssetCodes(UpiAccount.SUPPORTED_CURRENCIES)),
+            PAYTM = new PaymentMethod(PAYTM_ID, DAY, Coin.parseCoin("0.05"), getAssetCodes(PaytmAccount.SUPPORTED_CURRENCIES)),
+            NEQUI = new PaymentMethod(NEQUI_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(NequiAccount.SUPPORTED_CURRENCIES)),
+            BIZUM = new PaymentMethod(BIZUM_ID, DAY, Coin.parseCoin("0.04"), getAssetCodes(BizumAccount.SUPPORTED_CURRENCIES)),
+            PIX = new PaymentMethod(PIX_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(PixAccount.SUPPORTED_CURRENCIES)),
+            CAPITUAL = new PaymentMethod(CAPITUAL_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(CapitualAccount.SUPPORTED_CURRENCIES)),
+            CELPAY = new PaymentMethod(CELPAY_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(CelPayAccount.SUPPORTED_CURRENCIES)),
+            MONESE = new PaymentMethod(MONESE_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(MoneseAccount.SUPPORTED_CURRENCIES)),
+            SATISPAY = new PaymentMethod(SATISPAY_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(SatispayAccount.SUPPORTED_CURRENCIES)),
+            TIKKIE = new PaymentMethod(TIKKIE_ID, DAY, Coin.parseCoin("0.05"), getAssetCodes(TikkieAccount.SUPPORTED_CURRENCIES)),
+            VERSE = new PaymentMethod(VERSE_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(VerseAccount.SUPPORTED_CURRENCIES)),
+            STRIKE = new PaymentMethod(STRIKE_ID, DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(StrikeAccount.SUPPORTED_CURRENCIES)),
+            SWIFT = new PaymentMethod(SWIFT_ID, 7 * DAY, DEFAULT_TRADE_LIMIT_MID_RISK, getAssetCodes(SwiftAccount.SUPPORTED_CURRENCIES)),
+            ACH_TRANSFER = new PaymentMethod(ACH_TRANSFER_ID, 5 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(AchTransferAccount.SUPPORTED_CURRENCIES)),
+            DOMESTIC_WIRE_TRANSFER = new PaymentMethod(DOMESTIC_WIRE_TRANSFER_ID, 3 * DAY, DEFAULT_TRADE_LIMIT_HIGH_RISK, getAssetCodes(DomesticWireTransferAccount.SUPPORTED_CURRENCIES)),
 
             // Japan
-            JAPAN_BANK = new PaymentMethod(JAPAN_BANK_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK),
+            JAPAN_BANK = new PaymentMethod(JAPAN_BANK_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK, getAssetCodes(JapanBankAccount.SUPPORTED_CURRENCIES)),
 
             // Australia
-            AUSTRALIA_PAYID = new PaymentMethod(AUSTRALIA_PAYID_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK),
+            AUSTRALIA_PAYID = new PaymentMethod(AUSTRALIA_PAYID_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK, getAssetCodes(AustraliaPayidAccount.SUPPORTED_CURRENCIES)),
 
             // China
-            ALI_PAY = new PaymentMethod(ALI_PAY_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK),
-            WECHAT_PAY = new PaymentMethod(WECHAT_PAY_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK),
+            ALI_PAY = new PaymentMethod(ALI_PAY_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK, getAssetCodes(AliPayAccount.SUPPORTED_CURRENCIES)),
+            WECHAT_PAY = new PaymentMethod(WECHAT_PAY_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK, getAssetCodes(WeChatPayAccount.SUPPORTED_CURRENCIES)),
 
             // Thailand
-            PROMPT_PAY = new PaymentMethod(PROMPT_PAY_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK),
+            PROMPT_PAY = new PaymentMethod(PROMPT_PAY_ID, DAY, DEFAULT_TRADE_LIMIT_LOW_RISK, getAssetCodes(PromptPayAccount.SUPPORTED_CURRENCIES)),
 
             // Altcoins
-            BLOCK_CHAINS = new PaymentMethod(BLOCK_CHAINS_ID, DAY, DEFAULT_TRADE_LIMIT_VERY_LOW_RISK),
+            BLOCK_CHAINS = new PaymentMethod(BLOCK_CHAINS_ID, DAY, DEFAULT_TRADE_LIMIT_VERY_LOW_RISK, Arrays.asList()),
             // Altcoins with 1 hour trade period
-            BLOCK_CHAINS_INSTANT = new PaymentMethod(BLOCK_CHAINS_INSTANT_ID, TimeUnit.HOURS.toMillis(1), DEFAULT_TRADE_LIMIT_VERY_LOW_RISK)
+            BLOCK_CHAINS_INSTANT = new PaymentMethod(BLOCK_CHAINS_INSTANT_ID, TimeUnit.HOURS.toMillis(1), DEFAULT_TRADE_LIMIT_VERY_LOW_RISK, Arrays.asList())
     ));
+
+    // TODO: delete this override method, which overrides the paymentMethods variable, when all payment methods supported using structured form api, and make paymentMethods private
+    public static final List<PaymentMethod> getPaymentMethods() {
+        List<String> paymentMethodIds = List.of(
+                REVOLUT_ID,
+                SEPA_ID,
+                SEPA_INSTANT_ID,
+                TRANSFERWISE_ID,
+                CLEAR_X_CHANGE_ID,
+                SWIFT_ID,
+                F2F_ID,
+                STRIKE_ID,
+                MONEY_GRAM_ID,
+                FASTER_PAYMENTS_ID,
+                UPHOLD_ID,
+                PAXUM_ID);
+        return paymentMethods.stream().filter(paymentMethod -> paymentMethodIds.contains(paymentMethod.getId())).collect(Collectors.toList());
+    }
+
+    private static List<String> getAssetCodes(List<TradeCurrency> tradeCurrencies) {
+        return tradeCurrencies.stream().map(TradeCurrency::getCode).collect(Collectors.toList());
+    }
 
     static {
         paymentMethods.sort((o1, o2) -> {
@@ -222,7 +363,7 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
     }
 
     public static PaymentMethod getDummyPaymentMethod(String id) {
-        return new PaymentMethod(id, 0, Coin.ZERO);
+        return new PaymentMethod(id, 0, Coin.ZERO, Arrays.asList());
     }
 
 
@@ -246,6 +387,9 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
     // Java without breaking PB).
     private final long maxTradeLimit;
 
+    // list of asset codes the payment method supports
+    private List<String> supportedAssetCodes;
+
 
     ///////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -257,16 +401,18 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
      *                       place when needed.
      * @param maxTradePeriod The min. period a trader need to wait until he gets displayed the contact form for opening a dispute.
      * @param maxTradeLimit  The max. allowed trade amount in Bitcoin for that payment method (depending on charge back risk)
+     * @param supportedAssetCodes Supported asset codes.
      */
-    private PaymentMethod(String id, long maxTradePeriod, Coin maxTradeLimit) {
+    private PaymentMethod(String id, long maxTradePeriod, Coin maxTradeLimit, List<String> supportedAssetCodes) {
         this.id = id;
         this.maxTradePeriod = maxTradePeriod;
         this.maxTradeLimit = maxTradeLimit.value;
+        this.supportedAssetCodes = supportedAssetCodes;
     }
 
     // Used for dummy entries in payment methods list (SHOW_ALL)
     private PaymentMethod(String id) {
-        this(id, 0, Coin.ZERO);
+        this(id, 0, Coin.ZERO, new ArrayList<String>());
     }
 
 
@@ -280,13 +426,15 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
                 .setId(id)
                 .setMaxTradePeriod(maxTradePeriod)
                 .setMaxTradeLimit(maxTradeLimit)
+                .addAllSupportedAssetCodes(supportedAssetCodes)
                 .build();
     }
 
     public static PaymentMethod fromProto(protobuf.PaymentMethod proto) {
         return new PaymentMethod(proto.getId(),
                 proto.getMaxTradePeriod(),
-                Coin.valueOf(proto.getMaxTradeLimit()));
+                Coin.valueOf(proto.getMaxTradeLimit()),
+                proto.getSupportedAssetCodesList());
     }
 
 
@@ -294,17 +442,26 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
     // API
     ///////////////////////////////////////////////////////////////////////////////////////////
 
-    public static PaymentMethod getPaymentMethodById(String id) {
+    public static PaymentMethod getPaymentMethod(String id) {
+        return getActivePaymentMethod(id)
+                .orElseGet(() -> new PaymentMethod(Res.get("shared.na")));
+    }
+
+    // We look up only our active payment methods not retired ones.
+    public static Optional<PaymentMethod> getActivePaymentMethod(String id) {
         return paymentMethods.stream()
                 .filter(e -> e.getId().equals(id))
-                .findFirst()
-                .orElseGet(() -> new PaymentMethod(Res.get("shared.na")));
+                .findFirst();
     }
 
     public Coin getMaxTradeLimitAsCoin(String currencyCode) {
         // Hack for SF as the smallest unit is 1 SF ;-( and price is about 3 BTC!
         if (currencyCode.equals("SF"))
             return Coin.parseCoin("4");
+        // payment methods which define their own trade limits
+        if (id.equals(NEFT_ID) || id.equals(UPI_ID) || id.equals(PAYTM_ID) || id.equals(BIZUM_ID) || id.equals(TIKKIE_ID)) {
+            return Coin.valueOf(maxTradeLimit);
+        }
 
         // We use the class field maxTradeLimit only for mapping the risk factor.
         long riskFactor;
@@ -318,12 +475,24 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
             riskFactor = 8;
         else {
             riskFactor = 8;
-            log.error("maxTradeLimit is not matching one of our default values. maxTradeLimit=" + Coin.valueOf(maxTradeLimit).toFriendlyString());
+            log.warn("maxTradeLimit is not matching one of our default values. We use highest risk factor. " +
+                            "maxTradeLimit={}. PaymentMethod={}",
+                    Coin.valueOf(maxTradeLimit).toFriendlyString(), this);
         }
 
+        // get risk based trade limit
         TradeLimits tradeLimits = new TradeLimits();
         long maxTradeLimit = tradeLimits.getMaxTradeLimit().value;
-        return Coin.valueOf(tradeLimits.getRoundedRiskBasedTradeLimit(maxTradeLimit, riskFactor));
+        long riskBasedTradeLimit = tradeLimits.getRoundedRiskBasedTradeLimit(maxTradeLimit, riskFactor); // as centineros
+
+        // if fiat and stagenet, cap offer amounts before trade credits supported
+        // TODO: remove this when trade credits supported
+        boolean isFiat = CurrencyUtil.isFiatCurrency(currencyCode);
+        boolean isStagenet = Config.baseCurrencyNetwork() == BaseCurrencyNetwork.XMR_STAGENET;
+        if (isFiat && isStagenet && ParsingUtils.centinerosToXmr(riskBasedTradeLimit) > MAX_FIAT_STAGENET_XMR) {
+            riskBasedTradeLimit = ParsingUtils.xmrToCentineros(MAX_FIAT_STAGENET_XMR);
+        }
+        return Coin.valueOf(riskBasedTradeLimit);
     }
 
     public String getShortName() {
@@ -341,8 +510,21 @@ public final class PaymentMethod implements PersistablePayload, Comparable<Payme
         return Res.get(id);
     }
 
-    public boolean isAsset() {
+    public boolean isFiat() {
+        return !isAltcoin();
+    }
+
+    public boolean isBlockchain() {
         return this.equals(BLOCK_CHAINS_INSTANT) || this.equals(BLOCK_CHAINS);
+    }
+
+    // Includes any non btc asset, not limited to blockchain payment methods
+    public boolean isAltcoin() {
+        return isBlockchain() || isBsqSwap();
+    }
+
+    public boolean isBsqSwap() {
+        return this.equals(BSQ_SWAP);
     }
 
     public static boolean hasChargebackRisk(PaymentMethod paymentMethod, List<TradeCurrency> tradeCurrencies) {

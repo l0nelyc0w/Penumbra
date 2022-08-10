@@ -19,18 +19,17 @@ package bisq.core.trade.protocol;
 
 import bisq.core.trade.SellerTrade;
 import bisq.core.trade.Trade;
-import bisq.core.trade.messages.CounterCurrencyTransferStartedMessage;
+import bisq.core.trade.messages.PaymentSentMessage;
 import bisq.core.trade.messages.TradeMessage;
 import bisq.core.trade.protocol.BuyerProtocol.BuyerEvent;
 import bisq.core.trade.protocol.tasks.ApplyFilter;
 import bisq.core.trade.protocol.tasks.SetupDepositTxsListener;
 import bisq.core.trade.protocol.tasks.TradeTask;
-import bisq.core.trade.protocol.tasks.seller.SellerProcessCounterCurrencyTransferStartedMessage;
-import bisq.core.trade.protocol.tasks.seller.SellerSendPayoutTxPublishedMessage;
-import bisq.core.trade.protocol.tasks.seller.SellerSignAndPublishPayoutTx;
+import bisq.core.trade.protocol.tasks.seller.SellerProcessesPaymentSentMessage;
+import bisq.core.trade.protocol.tasks.seller.SellerSendsPaymentReceivedMessage;
+import bisq.core.trade.protocol.tasks.seller.SellerPreparesPaymentReceivedMessage;
 
 import bisq.network.p2p.NodeAddress;
-
 import bisq.common.handlers.ErrorMessageHandler;
 import bisq.common.handlers.ResultHandler;
 
@@ -66,8 +65,8 @@ public abstract class SellerProtocol extends DisputeProtocol {
     public void onMailboxMessage(TradeMessage message, NodeAddress peerNodeAddress) {
         super.onMailboxMessage(message, peerNodeAddress);
 
-        if (message instanceof CounterCurrencyTransferStartedMessage) {
-            handle((CounterCurrencyTransferStartedMessage) message, peerNodeAddress);
+        if (message instanceof PaymentSentMessage) {
+            handle((PaymentSentMessage) message, peerNodeAddress);
         }
     }
 
@@ -76,28 +75,32 @@ public abstract class SellerProtocol extends DisputeProtocol {
     // Incoming message when buyer has clicked payment started button
     ///////////////////////////////////////////////////////////////////////////////////////////
 
-    protected void handle(CounterCurrencyTransferStartedMessage message, NodeAddress peer) {
+    protected void handle(PaymentSentMessage message, NodeAddress peer) {
+        log.info("SellerProtocol.handle(PaymentSentMessage)");
         // We are more tolerant with expected phase and allow also DEPOSIT_PUBLISHED as it can be the case
         // that the wallet is still syncing and so the DEPOSIT_CONFIRMED state to yet triggered when we received
-        // a mailbox message with CounterCurrencyTransferStartedMessage.
+        // a mailbox message with PaymentSentMessage.
         // TODO A better fix would be to add a listener for the wallet sync state and process
         // the mailbox msg once wallet is ready and trade state set.
-        expect(anyPhase(Trade.Phase.DEPOSIT_CONFIRMED, Trade.Phase.DEPOSIT_PUBLISHED)
-                .with(message)
-                .from(peer)
-                .preCondition(trade.getPayoutTx() == null,
-                        () -> {
-                            log.warn("We received a CounterCurrencyTransferStartedMessage but we have already created the payout tx " +
-                                    "so we ignore the message. This can happen if the ACK message to the peer did not " +
-                                    "arrive and the peer repeats sending us the message. We send another ACK msg.");
-                            sendAckMessage(peer, message, true, null);
-                            removeMailboxMessageAfterProcessing(message);
-                        }))
-                .setup(tasks(
-                        SellerProcessCounterCurrencyTransferStartedMessage.class,
-                        ApplyFilter.class,
-                        getVerifyPeersFeePaymentClass()))
-                .executeTasks();
+        synchronized (trade) {
+            //CountDownLatch latch = new CountDownLatch(1); // TODO: apply latch countdown
+            expect(anyPhase(Trade.Phase.DEPOSIT_UNLOCKED, Trade.Phase.DEPOSIT_PUBLISHED)
+                    .with(message)
+                    .from(peer)
+                    .preCondition(trade.getPayoutTx() == null,
+                            () -> {
+                                log.warn("We received a PaymentSentMessage but we have already created the payout tx " +
+                                        "so we ignore the message. This can happen if the ACK message to the peer did not " +
+                                        "arrive and the peer repeats sending us the message. We send another ACK msg.");
+                                sendAckMessage(peer, message, true, null);
+                                removeMailboxMessageAfterProcessing(message);
+                            }))
+                    .setup(tasks(
+                            SellerProcessesPaymentSentMessage.class,
+                            ApplyFilter.class,
+                            getVerifyPeersFeePaymentClass()))
+                    .executeTasks();
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -105,35 +108,36 @@ public abstract class SellerProtocol extends DisputeProtocol {
     ///////////////////////////////////////////////////////////////////////////////////////////
 
     public void onPaymentReceived(ResultHandler resultHandler, ErrorMessageHandler errorMessageHandler) {
-        SellerEvent event = SellerEvent.PAYMENT_RECEIVED;
-        expect(anyPhase(Trade.Phase.FIAT_SENT, Trade.Phase.PAYOUT_PUBLISHED)
-                .with(event)
-                .preCondition(trade.confirmPermitted()))
-                .setup(tasks(
-                        ApplyFilter.class,
-                        getVerifyPeersFeePaymentClass(),
-                        SellerSignAndPublishPayoutTx.class,
-                        // SellerSignAndFinalizePayoutTx.class,
-                        // SellerBroadcastPayoutTx.class,
-                        SellerSendPayoutTxPublishedMessage.class)
-                        .using(new TradeTaskRunner(trade, () -> {
-                            resultHandler.handleResult();
-                            handleTaskRunnerSuccess(event);
-                        }, (errorMessage) -> {
-                            errorMessageHandler.handleErrorMessage(errorMessage);
-                            handleTaskRunnerFault(event, errorMessage);
-                        })))
-                .run(() -> trade.setState(Trade.State.SELLER_CONFIRMED_IN_UI_FIAT_PAYMENT_RECEIPT))
-                .executeTasks();
+        log.info("SellerProtocol.onPaymentReceived()");
+        synchronized (trade) {
+            SellerEvent event = SellerEvent.PAYMENT_RECEIVED;
+//          CountDownLatch latch = new CountDownLatch(1); // TODO (woodser): user countdown latch, but freezes legacy app
+            expect(anyPhase(Trade.Phase.PAYMENT_SENT)
+                    .with(event)
+                    .preCondition(trade.confirmPermitted()))
+                    .setup(tasks(
+                            ApplyFilter.class,
+                            getVerifyPeersFeePaymentClass(),
+                            SellerPreparesPaymentReceivedMessage.class,
+                            SellerSendsPaymentReceivedMessage.class)
+                            .using(new TradeTaskRunner(trade, () -> {
+                                resultHandler.handleResult();
+                                handleTaskRunnerSuccess(event);
+                            }, (errorMessage) -> {
+                                errorMessageHandler.handleErrorMessage(errorMessage);
+                                handleTaskRunnerFault(event, errorMessage);
+                            })))
+                    .run(() -> trade.setState(Trade.State.SELLER_CONFIRMED_IN_UI_PAYMENT_RECEIPT))
+                    .executeTasks();
+        }
     }
-
 
     @Override
     protected void onTradeMessage(TradeMessage message, NodeAddress peer) {
         super.onTradeMessage(message, peer);
 
-        if (message instanceof CounterCurrencyTransferStartedMessage) {
-            handle((CounterCurrencyTransferStartedMessage) message, peer);
+        if (message instanceof PaymentSentMessage) {
+            handle((PaymentSentMessage) message, peer);
         }
     }
 

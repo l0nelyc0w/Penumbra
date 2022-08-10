@@ -17,14 +17,23 @@
 
 package bisq.core.payment;
 
+import bisq.core.api.model.PaymentAccountFormField;
+import bisq.core.locale.CurrencyUtil;
+import bisq.core.locale.TradeCurrency;
 import bisq.core.payment.payload.CryptoCurrencyAccountPayload;
 import bisq.core.payment.payload.PaymentAccountPayload;
 import bisq.core.payment.payload.PaymentMethod;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import lombok.EqualsAndHashCode;
+import lombok.NonNull;
 
 @EqualsAndHashCode(callSuper = true)
 public final class CryptoCurrencyAccount extends AssetAccount {
+
+    public static final List<TradeCurrency> SUPPORTED_CURRENCIES = new ArrayList<>(CurrencyUtil.getAllSortedCryptoCurrencies());
 
     public CryptoCurrencyAccount() {
         super(PaymentMethod.BLOCK_CHAINS);
@@ -33,5 +42,15 @@ public final class CryptoCurrencyAccount extends AssetAccount {
     @Override
     protected PaymentAccountPayload createPayload() {
         return new CryptoCurrencyAccountPayload(paymentMethod.getId(), id);
+    }
+
+    @Override
+    public @NonNull List<TradeCurrency> getSupportedCurrencies() {
+        return SUPPORTED_CURRENCIES;
+    }
+
+    @Override
+    public @NonNull List<PaymentAccountFormField.FieldId> getInputFieldIds() {
+        throw new RuntimeException("Not implemented");
     }
 }

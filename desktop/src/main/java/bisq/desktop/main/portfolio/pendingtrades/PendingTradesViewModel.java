@@ -30,18 +30,20 @@ import bisq.core.offer.Offer;
 import bisq.core.offer.OfferUtil;
 import bisq.core.provider.fee.FeeService;
 import bisq.core.provider.mempool.MempoolService;
+import bisq.core.trade.ClosedTradableManager;
 import bisq.core.trade.Contract;
 import bisq.core.trade.Trade;
 import bisq.core.trade.TradeUtil;
-import bisq.core.trade.closed.ClosedTradableManager;
 import bisq.core.user.User;
 import bisq.core.util.FormattingUtils;
+import bisq.core.util.VolumeUtil;
 import bisq.core.util.coin.CoinFormatter;
 import bisq.core.util.validation.BtcAddressValidator;
 
 import bisq.network.p2p.P2PService;
 
 import bisq.common.ClockWatcher;
+import bisq.common.UserThread;
 import bisq.common.app.DevEnv;
 
 import org.bitcoinj.core.Coin;
@@ -179,8 +181,9 @@ public class PendingTradesViewModel extends ActivatableWithDataModel<PendingTrad
 
         if (selectedItem != null) {
             this.trade = selectedItem.getTrade();
-            tradeStateSubscription = EasyBind.subscribe(trade.stateProperty(), this::onTradeStateChanged);
-
+            tradeStateSubscription = EasyBind.subscribe(trade.stateProperty(), state -> {
+                UserThread.execute(() -> onTradeStateChanged(state));
+            });
             messageStateSubscription = EasyBind.subscribe(trade.getProcessModel().getPaymentStartedMessageStateProperty(), this::onMessageStateChanged);
         }
     }
@@ -299,21 +302,21 @@ public class PendingTradesViewModel extends ActivatableWithDataModel<PendingTrad
     // summary
     public String getTradeVolume() {
         return dataModel.getTrade() != null
-                ? btcFormatter.formatCoinWithCode(dataModel.getTrade().getTradeAmount())
+                ? btcFormatter.formatCoinWithCode(dataModel.getTrade().getAmount())
                 : "";
     }
 
     public String getFiatVolume() {
         return dataModel.getTrade() != null
-                ? DisplayUtils.formatVolumeWithCode(dataModel.getTrade().getTradeVolume())
+                ? VolumeUtil.formatVolumeWithCode(dataModel.getTrade().getVolume())
                 : "";
     }
 
     public String getTxFee() {
-        if (trade != null && trade.getTradeAmount() != null) {
+        if (trade != null && trade.getAmount() != null) {
             Coin txFee = dataModel.getTxFee();
             String percentage = GUIUtil.getPercentageOfTradeAmount(txFee,
-                    trade.getTradeAmount(),
+                    trade.getAmount(),
                     Coin.ZERO);
             return btcFormatter.formatCoinWithCode(txFee) + percentage;
         } else {
@@ -322,7 +325,7 @@ public class PendingTradesViewModel extends ActivatableWithDataModel<PendingTrad
     }
 
     public String getTradeFee() {
-        if (trade != null && dataModel.getOffer() != null && trade.getTradeAmount() != null) {
+        if (trade != null && dataModel.getOffer() != null && trade.getAmount() != null) {
             checkNotNull(dataModel.getTrade());
 
             Coin tradeFeeInBTC = dataModel.getTradeFeeInBTC();
@@ -331,7 +334,7 @@ public class PendingTradesViewModel extends ActivatableWithDataModel<PendingTrad
                     FeeService.getMinMakerFee() :
                     FeeService.getMinTakerFee();
 
-            String percentage = GUIUtil.getPercentageOfTradeAmount(tradeFeeInBTC, trade.getTradeAmount(),
+            String percentage = GUIUtil.getPercentageOfTradeAmount(tradeFeeInBTC, trade.getAmount(),
                     minTradeFee);
             return btcFormatter.formatCoinWithCode(tradeFeeInBTC) + percentage;
         } else {
@@ -342,7 +345,7 @@ public class PendingTradesViewModel extends ActivatableWithDataModel<PendingTrad
     public String getSecurityDeposit() {
         Offer offer = dataModel.getOffer();
         Trade trade = dataModel.getTrade();
-        if (offer != null && trade != null && trade.getTradeAmount() != null) {
+        if (offer != null && trade != null && trade.getAmount() != null) {
             Coin securityDeposit = dataModel.isBuyer() ?
                     offer.getBuyerSecurityDeposit()
                     : offer.getSellerSecurityDeposit();
@@ -352,7 +355,7 @@ public class PendingTradesViewModel extends ActivatableWithDataModel<PendingTrad
                     Restrictions.getMinSellerSecurityDepositAsCoin();
 
             String percentage = GUIUtil.getPercentageOfTradeAmount(securityDeposit,
-                    trade.getTradeAmount(),
+                    trade.getAmount(),
                     minSecurityDeposit);
             return btcFormatter.formatCoinWithCode(securityDeposit) + percentage;
         } else {
@@ -399,6 +402,7 @@ public class PendingTradesViewModel extends ActivatableWithDataModel<PendingTrad
         switch (tradeState) {
             // #################### Phase PREPARATION
             case PREPARATION:
+            case CONTRACT_SIGNATURE_REQUESTED:
                 sellerState.set(UNDEFINED);
                 buyerState.set(BuyerState.UNDEFINED);
                 break;
@@ -445,38 +449,42 @@ public class PendingTradesViewModel extends ActivatableWithDataModel<PendingTrad
 
 
             // buyer and seller step 2
-            // #################### Phase DEPOSIT_CONFIRMED
-            case DEPOSIT_CONFIRMED_IN_BLOCK_CHAIN:
+            // #################### Phase DEPOSIT_UNLOCKED
+            case DEPOSIT_UNLOCKED_IN_BLOCK_CHAIN:
                 sellerState.set(SellerState.STEP2);
                 buyerState.set(BuyerState.STEP2);
                 break;
 
             // buyer step 3
-            case BUYER_CONFIRMED_IN_UI_FIAT_PAYMENT_INITIATED: // UI action
-            case BUYER_SENT_FIAT_PAYMENT_INITIATED_MSG:  // FIAT_PAYMENT_INITIATED_MSG sent
+            case BUYER_CONFIRMED_IN_UI_PAYMENT_SENT: // UI action
+            case BUYER_SENT_PAYMENT_SENT_MSG:  // PAYMENT_SENT_MSG sent
                 // We don't switch the UI before we got the feedback of the msg delivery
                 buyerState.set(BuyerState.STEP2);
                 break;
-            case BUYER_SAW_ARRIVED_FIAT_PAYMENT_INITIATED_MSG:  // FIAT_PAYMENT_INITIATED_MSG arrived
-            case BUYER_STORED_IN_MAILBOX_FIAT_PAYMENT_INITIATED_MSG:  // FIAT_PAYMENT_INITIATED_MSG in mailbox
+            case BUYER_SAW_ARRIVED_PAYMENT_SENT_MSG:  // PAYMENT_SENT_MSG arrived
+            case BUYER_STORED_IN_MAILBOX_PAYMENT_SENT_MSG:  // PAYMENT_SENT_MSG in mailbox
                 buyerState.set(BuyerState.STEP3);
                 break;
-            case BUYER_SEND_FAILED_FIAT_PAYMENT_INITIATED_MSG:  // FIAT_PAYMENT_INITIATED_MSG failed
+            case BUYER_SEND_FAILED_PAYMENT_SENT_MSG:  // PAYMENT_SENT_MSG failed
                 // if failed we need to repeat sending so back to step 2
                 buyerState.set(BuyerState.STEP2);
                 break;
 
             // seller step 3
-            case SELLER_RECEIVED_FIAT_PAYMENT_INITIATED_MSG: // FIAT_PAYMENT_INITIATED_MSG received
+            case SELLER_RECEIVED_PAYMENT_SENT_MSG: // PAYMENT_SENT_MSG received
                 sellerState.set(SellerState.STEP3);
                 break;
 
             // seller step 4
-            case SELLER_CONFIRMED_IN_UI_FIAT_PAYMENT_RECEIPT:   // UI action
-            case SELLER_PUBLISHED_PAYOUT_TX: // payout tx broad casted
+            case SELLER_CONFIRMED_IN_UI_PAYMENT_RECEIPT: // UI action
+            case SELLER_SENT_PAYMENT_RECEIVED_MSG:
+            case SELLER_PUBLISHED_PAYOUT_TX: // payout tx broadcasted
             case SELLER_SENT_PAYOUT_TX_PUBLISHED_MSG: // PAYOUT_TX_PUBLISHED_MSG sent
                 sellerState.set(SellerState.STEP3);
                 break;
+            case SELLER_SAW_ARRIVED_PAYMENT_RECEIVED_MSG:
+            case SELLER_STORED_IN_MAILBOX_PAYMENT_RECEIVED_MSG:
+            case SELLER_SEND_FAILED_PAYMENT_RECEIVED_MSG:
             case SELLER_SAW_ARRIVED_PAYOUT_TX_PUBLISHED_MSG: // PAYOUT_TX_PUBLISHED_MSG arrived
             case SELLER_STORED_IN_MAILBOX_PAYOUT_TX_PUBLISHED_MSG: // PAYOUT_TX_PUBLISHED_MSG mailbox
             case SELLER_SEND_FAILED_PAYOUT_TX_PUBLISHED_MSG: // PAYOUT_TX_PUBLISHED_MSG failed -  payout tx is published, peer will see it in network so we ignore failure and complete
@@ -487,6 +495,8 @@ public class PendingTradesViewModel extends ActivatableWithDataModel<PendingTrad
             case BUYER_RECEIVED_PAYOUT_TX_PUBLISHED_MSG:
                 // Alternatively the maker could have seen the payout tx earlier before he received the PAYOUT_TX_PUBLISHED_MSG:
             case BUYER_SAW_PAYOUT_TX_IN_NETWORK:
+                // Alternatively the buyer could fully sign and publish the payout tx
+            case BUYER_PUBLISHED_PAYOUT_TX:
                 buyerState.set(BuyerState.STEP4);
                 break;
 

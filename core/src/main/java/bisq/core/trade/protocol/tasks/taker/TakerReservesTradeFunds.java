@@ -20,14 +20,12 @@ package bisq.core.trade.protocol.tasks.taker;
 import bisq.common.taskrunner.TaskRunner;
 import bisq.core.btc.model.XmrAddressEntry;
 import bisq.core.trade.Trade;
-import bisq.core.trade.TradeUtils;
 import bisq.core.trade.protocol.tasks.TradeTask;
 import bisq.core.util.ParsingUtils;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import monero.daemon.model.MoneroOutput;
-import monero.wallet.MoneroWallet;
 import monero.wallet.model.MoneroTxWallet;
 
 public class TakerReservesTradeFunds extends TradeTask {
@@ -59,7 +57,7 @@ public class TakerReservesTradeFunds extends TradeTask {
             // save process state
             // TODO (woodser): persist
             processModel.setReserveTx(reserveTx);
-            processModel.getTaker().setReserveTxKeyImages(reserveTxKeyImages);
+            processModel.getTaker().setReserveTxKeyImages(reservedKeyImages);
             trade.setTakerFeeTxId(reserveTx.getHash()); // TODO (woodser): this should be multisig deposit tx id? how is it used?
             //trade.setState(Trade.State.TAKER_PUBLISHED_TAKER_FEE_TX); // TODO (woodser): fee tx is not broadcast separate, update states
             complete();

@@ -23,11 +23,14 @@ import bisq.desktop.common.view.FxmlView;
 import bisq.desktop.components.AutoTooltipLabel;
 import bisq.desktop.components.HyperlinkWithIcon;
 import bisq.desktop.components.PeerInfoIcon;
+import bisq.desktop.components.PeerInfoIconTrading;
+import bisq.desktop.components.list.FilterBox;
 import bisq.desktop.main.MainView;
 import bisq.desktop.main.overlays.popups.Popup;
 import bisq.desktop.main.overlays.windows.TradeDetailsWindow;
 import bisq.desktop.main.portfolio.PortfolioView;
 import bisq.desktop.main.portfolio.duplicateoffer.DuplicateOfferView;
+import bisq.desktop.main.portfolio.presentation.PortfolioUtil;
 import bisq.desktop.main.shared.ChatView;
 import bisq.desktop.util.CssTheme;
 import bisq.desktop.util.DisplayUtils;
@@ -44,6 +47,7 @@ import bisq.core.trade.Contract;
 import bisq.core.trade.Trade;
 import bisq.core.user.Preferences;
 import bisq.core.util.FormattingUtils;
+import bisq.core.util.VolumeUtil;
 import bisq.core.util.coin.CoinFormatter;
 
 import bisq.network.p2p.NodeAddress;
@@ -102,6 +106,7 @@ import javafx.event.EventHandler;
 
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
 
 import javafx.util.Callback;
@@ -125,10 +130,13 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
     private final boolean useDevModeHeader;
     private final Preferences preferences;
     @FXML
+    FilterBox filterBox;
+    @FXML
     TableView<PendingTradesListItem> tableView;
     @FXML
     TableColumn<PendingTradesListItem, PendingTradesListItem> priceColumn, volumeColumn, amountColumn, avatarColumn,
             marketColumn, roleColumn, paymentMethodColumn, tradeIdColumn, dateColumn, chatColumn, moveTradeToFailedColumn;
+    private FilteredList<PendingTradesListItem> filteredList;
     private SortedList<PendingTradesListItem> sortedList;
     private TradeSubView selectedSubView;
     private EventHandler<KeyEvent> keyEventEventHandler;
@@ -210,16 +218,16 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
 
         tradeIdColumn.setComparator(Comparator.comparing(o -> o.getTrade().getId()));
         dateColumn.setComparator(Comparator.comparing(o -> o.getTrade().getDate()));
-        volumeColumn.setComparator(Comparator.comparing(o -> o.getTrade().getTradeVolume(), Comparator.nullsFirst(Comparator.naturalOrder())));
-        amountColumn.setComparator(Comparator.comparing(o -> o.getTrade().getTradeAmount(), Comparator.nullsFirst(Comparator.naturalOrder())));
-        priceColumn.setComparator(Comparator.comparing(item -> FormattingUtils.formatPrice(item.getPrice())));
+        volumeColumn.setComparator(Comparator.comparing(o -> o.getTrade().getVolume(), Comparator.nullsFirst(Comparator.naturalOrder())));
+        amountColumn.setComparator(Comparator.comparing(o -> o.getTrade().getAmount(), Comparator.nullsFirst(Comparator.naturalOrder())));
+        priceColumn.setComparator(Comparator.comparing(PendingTradesListItem::getPrice));
         paymentMethodColumn.setComparator(Comparator.comparing(
                 item -> item.getTrade().getOffer() != null ?
                         Res.get(item.getTrade().getOffer().getPaymentMethod().getId()) :
                         null,
                 Comparator.nullsFirst(Comparator.naturalOrder())));
 
-        marketColumn.setComparator(Comparator.comparing(model::getMarketLabel));
+        marketColumn.setComparator(Comparator.comparing(PendingTradesListItem::getMarketDescription));
         roleColumn.setComparator(Comparator.comparing(model::getMyRole));
         avatarColumn.setComparator(Comparator.comparing(
                 o -> model.getNumPastTrades(o.getTrade()),
@@ -232,12 +240,12 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
                 tableView -> {
                     final TableRow<PendingTradesListItem> row = new TableRow<>();
                     final ContextMenu rowMenu = new ContextMenu();
-                    MenuItem editItem = new MenuItem(Res.get("portfolio.context.offerLikeThis"));
-                    editItem.setOnAction((event) -> {
+                    MenuItem duplicateItem = new MenuItem(Res.get("portfolio.context.offerLikeThis"));
+                    duplicateItem.setOnAction((event) -> {
                         try {
                             OfferPayload offerPayload = row.getItem().getTrade().getOffer().getOfferPayload();
                             if (offerPayload.getPubKeyRing().equals(keyRing.getPubKeyRing())) {
-                                navigation.navigateToWithData(offerPayload, MainView.class, PortfolioView.class, DuplicateOfferView.class);
+                                PortfolioUtil.duplicateOffer(navigation, offerPayload);
                             } else {
                                 new Popup().warning(Res.get("portfolio.context.notYourOffer")).show();
                             }
@@ -245,7 +253,7 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
                             log.warn("Unable to get offerPayload - {}", e.toString());
                         }
                     });
-                    rowMenu.getItems().add(editItem);
+                    rowMenu.getItems().add(duplicateItem);
                     row.contextMenuProperty().bind(
                             Bindings.when(Bindings.isNotNull(row.itemProperty()))
                                     .then(rowMenu)
@@ -282,9 +290,13 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
     @Override
     protected void activate() {
         ObservableList<PendingTradesListItem> list = model.dataModel.list;
-        sortedList = new SortedList<>(list);
+        filteredList = new FilteredList<>(list);
+        sortedList = new SortedList<>(filteredList);
         sortedList.comparatorProperty().bind(tableView.comparatorProperty());
         tableView.setItems(sortedList);
+
+        filterBox.initialize(filteredList, tableView); // here because filteredList is instantiated here
+        filterBox.activate();
 
         updateMoveTradeToFailedColumnState();
 
@@ -302,12 +314,12 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
                     selectedSubView = model.dataModel.tradeManager.isBuyer(model.dataModel.getOffer()) ?
                             new BuyerSubView(model) : new SellerSubView(model);
 
-                    selectedSubView.setMinHeight(440);
+                    selectedSubView.setMinHeight(460);
                     VBox.setVgrow(selectedSubView, Priority.ALWAYS);
-                    if (root.getChildren().size() == 1)
+                    if (root.getChildren().size() == 2)
                         root.getChildren().add(selectedSubView);
-                    else if (root.getChildren().size() == 2)
-                        root.getChildren().set(1, selectedSubView);
+                    else if (root.getChildren().size() == 3)
+                        root.getChildren().set(2, selectedSubView);
 
                     // create and register a callback so we can be notified when the subview
                     // wants to open the chat window
@@ -341,6 +353,7 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
 
     @Override
     protected void deactivate() {
+        filterBox.deactivate();
         sortedList.comparatorProperty().unbind();
         selectedItemSubscription.unsubscribe();
         selectedTableItemSubscription.unsubscribe();
@@ -363,11 +376,12 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
     }
 
     private void updateMoveTradeToFailedColumnState() {
-        moveTradeToFailedColumn.setVisible(model.dataModel.list.stream().anyMatch(item -> isMaybeInvalidTrade(item.getTrade())));
+        UserThread.execute(() -> moveTradeToFailedColumn.setVisible(model.dataModel.list.stream().anyMatch(item -> isMaybeInvalidTrade(item.getTrade()))));
     }
 
     private boolean isMaybeInvalidTrade(Trade trade) {
-        return trade.isTxChainInvalid() || trade.hasErrorMessage();
+        return trade.hasErrorMessage() ||
+                (Trade.Phase.DEPOSIT_PUBLISHED.ordinal() <= trade.getPhase().ordinal() && trade.isTxChainInvalid());
     }
 
     private void onMoveInvalidTradeToFailedTrades(Trade trade) {
@@ -398,7 +412,7 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
             return Res.get("portfolio.pending.failedTrade.missingContract");
         }
 
-        PubKeyRing myPubKeyRing = model.dataModel.getPubKeyRing();
+        PubKeyRing myPubKeyRing = model.dataModel.getPubKeyRingProvider().get();
         boolean isMyRoleBuyer = contract.isMyRoleBuyer(myPubKeyRing);
         boolean isMyRoleMaker = contract.isMyRoleMaker(myPubKeyRing);
 
@@ -468,27 +482,33 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
         TradeChatSession tradeChatSession = new TradeChatSession(trade, isTaker);
 
         tradeStateListener = (observable, oldValue, newValue) -> {
-            if (trade.isPayoutPublished()) {
-                if (chatPopupStage.isShowing()) {
-                    chatPopupStage.hide();
+            UserThread.execute(() -> {
+                if (trade.isPayoutPublished()) {
+                    if (chatPopupStage.isShowing()) {
+                        chatPopupStage.hide();
+                    }
                 }
-            }
+            });
         };
         trade.stateProperty().addListener(tradeStateListener);
 
         disputeStateListener = (observable, oldValue, newValue) -> {
-            if (newValue == Trade.DisputeState.DISPUTE_CLOSED || newValue == Trade.DisputeState.REFUND_REQUEST_CLOSED) {
-                chatPopupStage.hide();
-            }
+            UserThread.execute(() -> {
+                if (newValue == Trade.DisputeState.DISPUTE_CLOSED || newValue == Trade.DisputeState.REFUND_REQUEST_CLOSED) {
+                    chatPopupStage.hide();
+                }
+            });
         };
         trade.disputeStateProperty().addListener(disputeStateListener);
 
         mediationResultStateListener = (observable, oldValue, newValue) -> {
-            if (newValue == MediationResultState.PAYOUT_TX_PUBLISHED ||
-                    newValue == MediationResultState.RECEIVED_PAYOUT_TX_PUBLISHED_MSG ||
-                    newValue == MediationResultState.PAYOUT_TX_SEEN_IN_NETWORK) {
-                chatPopupStage.hide();
-            }
+            UserThread.execute(() -> {
+                if (newValue == MediationResultState.PAYOUT_TX_PUBLISHED ||
+                        newValue == MediationResultState.RECEIVED_PAYOUT_TX_PUBLISHED_MSG ||
+                        newValue == MediationResultState.PAYOUT_TX_SEEN_IN_NETWORK) {
+                    chatPopupStage.hide();
+                }
+            });
         };
         trade.mediationResultStateProperty().addListener(mediationResultStateListener);
 
@@ -559,21 +579,23 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
     }
 
     private void updateChatMessageCount(Trade trade, JFXBadge badge) {
-        if (!trade.getId().equals(tradeIdOfOpenChat)) {
-            updateNewChatMessagesByTradeMap();
-            long num = newChatMessagesByTradeMap.get(trade.getId());
-            if (num > 0) {
-                badge.setText(String.valueOf(num));
-                badge.setEnabled(true);
+        UserThread.execute(() -> {
+            if (!trade.getId().equals(tradeIdOfOpenChat)) {
+                updateNewChatMessagesByTradeMap();
+                long num = newChatMessagesByTradeMap.get(trade.getId());
+                if (num > 0) {
+                    badge.setText(String.valueOf(num));
+                    badge.setEnabled(true);
+                } else {
+                    badge.setText("");
+                    badge.setEnabled(false);
+                }
             } else {
                 badge.setText("");
                 badge.setEnabled(false);
             }
-        } else {
-            badge.setText("");
-            badge.setEnabled(false);
-        }
-        badge.refreshBadge();
+            badge.refreshBadge();
+        });
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -695,7 +717,7 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
                             public void updateItem(final PendingTradesListItem item, boolean empty) {
                                 super.updateItem(item, empty);
                                 if (item != null && !empty)
-                                    setGraphic(new AutoTooltipLabel(formatter.formatCoin(item.getTrade().getTradeAmount())));
+                                    setGraphic(new AutoTooltipLabel(formatter.formatCoin(item.getTrade().getAmount())));
                                 else
                                     setGraphic(null);
                             }
@@ -738,7 +760,7 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
                                 super.updateItem(item, empty);
                                 if (item != null && !empty) {
                                     try {
-                                        String volume = DisplayUtils.formatVolumeWithCode(item.getTrade().getTradeVolume());
+                                        String volume = VolumeUtil.formatVolumeWithCode(item.getTrade().getVolume());
                                         setGraphic(new AutoTooltipLabel(volume));
                                     } catch (Throwable ignore) {
                                         log.debug(ignore.toString()); // Stupidity to make Codacy happy
@@ -763,7 +785,7 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
                             public void updateItem(final PendingTradesListItem item, boolean empty) {
                                 super.updateItem(item, empty);
                                 if (item != null && !empty)
-                                    setGraphic(new AutoTooltipLabel(model.getPaymentMethod(item)));
+                                    setGraphic(new AutoTooltipLabel(item.getPaymentMethod()));
                                 else
                                     setGraphic(null);
                             }
@@ -783,7 +805,12 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
                             @Override
                             public void updateItem(final PendingTradesListItem item, boolean empty) {
                                 super.updateItem(item, empty);
-                                setGraphic(new AutoTooltipLabel(model.getMarketLabel(item)));
+
+                                if (item != null && !empty) {
+                                    setGraphic(new AutoTooltipLabel(item.getMarketDescription()));
+                                } else {
+                                    setGraphic(null);
+                                }
                             }
                         };
                     }
@@ -830,7 +857,7 @@ public class PendingTradesView extends ActivatableViewAndModel<VBox, PendingTrad
                                     final NodeAddress tradingPeerNodeAddress = trade.getTradingPeerNodeAddress();
                                     int numPastTrades = model.getNumPastTrades(trade);
                                     String role = Res.get("peerInfoIcon.tooltip.tradePeer");
-                                    Node peerInfoIcon = new PeerInfoIcon(tradingPeerNodeAddress,
+                                    Node peerInfoIcon = new PeerInfoIconTrading(tradingPeerNodeAddress,
                                             role,
                                             numPastTrades,
                                             privateNotificationManager,

@@ -18,25 +18,14 @@
 package bisq.core.trade.protocol.tasks;
 
 import bisq.common.app.Version;
-import bisq.common.crypto.PubKeyRing;
 import bisq.common.taskrunner.TaskRunner;
 import bisq.core.btc.model.XmrAddressEntry;
-import bisq.core.offer.Offer;
-import bisq.core.trade.MakerTrade;
-import bisq.core.trade.SellerTrade;
 import bisq.core.trade.Trade;
-import bisq.core.trade.TradeUtils;
 import bisq.core.trade.messages.SignContractRequest;
-import bisq.core.trade.protocol.TradeListener;
-import bisq.core.util.ParsingUtils;
-import bisq.network.p2p.AckMessage;
-import bisq.network.p2p.NodeAddress;
 import bisq.network.p2p.SendDirectMessageListener;
-import java.math.BigInteger;
 import java.util.Date;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
-import monero.daemon.model.MoneroOutput;
 import monero.wallet.MoneroWallet;
 import monero.wallet.model.MoneroTxWallet;
 
@@ -46,7 +35,6 @@ public class SendSignContractRequestAfterMultisig extends TradeTask {
 
     private boolean ack1 = false;
     private boolean ack2 = false;
-    private boolean failed = false;
 
     @SuppressWarnings({"unused"})
     public SendSignContractRequestAfterMultisig(TaskRunner taskHandler, Trade trade) {
@@ -62,7 +50,10 @@ public class SendSignContractRequestAfterMultisig extends TradeTask {
           if (!processModel.isMultisigSetupComplete()) return; // TODO: woodser: this does not ack original request?
 
           // skip if deposit tx already created
-          if (processModel.getDepositTxXmr() != null) return;
+          if (processModel.getDepositTxXmr() != null) {
+              complete();
+              return;
+          }
 
           // thaw reserved outputs
           MoneroWallet wallet = trade.getXmrWalletService().getWallet();
@@ -91,28 +82,18 @@ public class SendSignContractRequestAfterMultisig extends TradeTask {
           // complete on successful ack messages
           TradeListener ackListener = new TradeListener() {
               @Override
-              public void onAckMessage(AckMessage ackMessage, NodeAddress sender) {
-                  if (!ackMessage.getSourceMsgClassName().equals(SignContractRequest.class.getSimpleName())) return;
-                  if (ackMessage.isSuccess()) {
-                     if (sender.equals(trade.getTradingPeerNodeAddress())) ack1 = true;
-                     if (sender.equals(trade.getArbitratorNodeAddress())) ack2 = true;
-                     if (ack1 && ack2) {
-                         trade.removeListener(this);
-                         completeAux();
-                     }
-                  } else {
-                      if (!failed) {
-                          failed = true;
-                          failed(ackMessage.getErrorMessage()); // TODO: (woodser): only fail once? build into task?
-                      }
-                  }
+              public void onArrived() {
+                  log.info("{} arrived: trading peer={}; offerId={}; uid={}", request.getClass().getSimpleName(), trade.getArbitratorNodeAddress(), trade.getId());
+                  ack2 = true;
+                  if (ack1 && ack2) completeAux();
               }
-          };
-          trade.addListener(ackListener);
-
-          // send sign contract requests to peer and arbitrator
-          sendSignContractRequest(trade.getTradingPeerNodeAddress(), trade.getTradingPeerPubKeyRing(), offer, depositTx);
-          sendSignContractRequest(trade.getArbitratorNodeAddress(), trade.getArbitratorPubKeyRing(), offer, depositTx);
+              @Override
+              public void onFault(String errorMessage) {
+                  log.error("Sending {} failed: uid={}; peer={}; error={}", request.getClass().getSimpleName(), trade.getArbitratorNodeAddress(), trade.getId(), errorMessage);
+                  appendToErrorMessage("Sending message failed: message=" + request + "\nerrorMessage=" + errorMessage);
+                  failed();
+              }
+          });
         } catch (Throwable t) {
           failed(t);
         }
@@ -149,7 +130,7 @@ public class SendSignContractRequestAfterMultisig extends TradeTask {
     }
 
     private void completeAux() {
-        processModel.getXmrWalletService().getWallet().save();
+        processModel.getXmrWalletService().saveWallet(processModel.getXmrWalletService().getWallet());
         complete();
     }
 }

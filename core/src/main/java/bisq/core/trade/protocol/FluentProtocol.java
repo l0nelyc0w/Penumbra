@@ -91,27 +91,29 @@ public class FluentProtocol {
             }
             return this;
         }
+        
+        synchronized (tradeProtocol.trade) {
+            if (setup.getTimeoutSec() > 0) {
+                tradeProtocol.startTimeout(setup.getTimeoutSec());
+            }
 
-        if (setup.getTimeoutSec() > 0) {
-            tradeProtocol.startTimeout(setup.getTimeoutSec());
+            NodeAddress peer = condition.getPeer();
+            if (peer != null) {
+                tradeProtocol.processModel.setTempTradingPeerNodeAddress(peer); // TODO (woodser): node has multiple peers (arbitrator and maker or taker), but fluent protocol assumes only one
+                tradeProtocol.processModel.getTradeManager().requestPersistence();
+            }
+
+            TradeMessage message = condition.getMessage();
+            if (message != null) {
+                tradeProtocol.processModel.setTradeMessage(message);
+                tradeProtocol.processModel.getTradeManager().requestPersistence();
+            }
+
+            TradeTaskRunner taskRunner = setup.getTaskRunner(peer, message, condition.getEvent());
+            taskRunner.addTasks(setup.getTasks());
+            taskRunner.run();
+            return this;
         }
-
-        NodeAddress peer = condition.getPeer();
-        if (peer != null) {
-            tradeProtocol.processModel.setTempTradingPeerNodeAddress(peer); // TODO (woodser): node has multiple peers (arbitrator and maker or taker), but fluent protocol assumes only one
-            tradeProtocol.processModel.getTradeManager().requestPersistence();
-        }
-
-        TradeMessage message = condition.getMessage();
-        if (message != null) {
-            tradeProtocol.processModel.setTradeMessage(message);
-            tradeProtocol.processModel.getTradeManager().requestPersistence();
-        }
-
-        TradeTaskRunner taskRunner = setup.getTaskRunner(peer, message, condition.getEvent());
-        taskRunner.addTasks(setup.getTasks());
-        taskRunner.run();
-        return this;
     }
 
 
@@ -287,7 +289,7 @@ public class FluentProtocol {
                 return Result.VALID.info(info);
             } else {
                 String info = MessageFormat.format("We received a {0} but we are are not in the expected phase.\n" +
-                                "This can be an expected case if we get a repeated CounterCurrencyTransferStartedMessage " +
+                                "This can be an expected case if we get a repeated PaymentSentMessage " +
                                 "after we have already received one as the peer re-sends that message at each startup.\n" +
                                 "Expected phases={1},\nTrade phase={2},\nTrade state= {3},\ntradeId={4}",
                         trigger,

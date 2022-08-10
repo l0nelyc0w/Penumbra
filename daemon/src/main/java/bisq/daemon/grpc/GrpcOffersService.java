@@ -39,7 +39,7 @@ import io.grpc.ServerInterceptor;
 import io.grpc.stub.StreamObserver;
 
 import javax.inject.Inject;
-
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -47,7 +47,6 @@ import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 
-import static bisq.core.api.model.OfferInfo.toOfferInfo;
 import static bisq.daemon.grpc.interceptor.GrpcServiceRateMeteringConfig.getCustomRateMeteringInterceptor;
 import static bisq.proto.grpc.OffersGrpc.*;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -75,7 +74,7 @@ class GrpcOffersService extends OffersImplBase {
         try {
             Offer offer = coreApi.getOffer(req.getId());
             var reply = GetOfferReply.newBuilder()
-                    .setOffer(toOfferInfo(offer).toProtoMessage())
+                    .setOffer(OfferInfo.toOfferInfo(offer).toProtoMessage())
                     .build();
             responseObserver.onNext(reply);
             responseObserver.onCompleted();
@@ -84,14 +83,14 @@ class GrpcOffersService extends OffersImplBase {
         }
     }
 
+    // TODO: merge with getOffer()?
     @Override
     public void getMyOffer(GetMyOfferRequest req,
                            StreamObserver<GetMyOfferReply> responseObserver) {
         try {
-            Offer offer = coreApi.getMyOffer(req.getId());
             OpenOffer openOffer = coreApi.getMyOpenOffer(req.getId());
             var reply = GetMyOfferReply.newBuilder()
-                    .setOffer(toOfferInfo(offer, openOffer.getTriggerPrice()).toProtoMessage())
+                    .setOffer(OfferInfo.toMyOfferInfo(openOffer).toProtoMessage())
                     .build();
             responseObserver.onNext(reply);
             responseObserver.onCompleted();
@@ -123,9 +122,11 @@ class GrpcOffersService extends OffersImplBase {
     public void getMyOffers(GetMyOffersRequest req,
                             StreamObserver<GetMyOffersReply> responseObserver) {
         try {
-            List<OfferInfo> result = coreApi.getMyOffers(req.getDirection(), req.getCurrencyCode())
-                    .stream().map(OfferInfo::toOfferInfo)
-                    .collect(Collectors.toList());
+            List<OfferInfo> result = new ArrayList<OfferInfo>();
+            for (Offer offer : coreApi.getMyOffers(req.getDirection(), req.getCurrencyCode())) {
+                OpenOffer openOffer = coreApi.getMyOpenOffer(offer.getId());
+                result.add(OfferInfo.toMyOfferInfo(openOffer));
+            }
             var reply = GetMyOffersReply.newBuilder()
                     .addAllOffers(result.stream()
                             .map(OfferInfo::toProtoMessage)
@@ -141,27 +142,37 @@ class GrpcOffersService extends OffersImplBase {
     @Override
     public void createOffer(CreateOfferRequest req,
                             StreamObserver<CreateOfferReply> responseObserver) {
+        GrpcErrorMessageHandler errorMessageHandler =
+                new GrpcErrorMessageHandler(getCreateOfferMethod().getFullMethodName(),
+                        responseObserver,
+                        exceptionHandler,
+                        log);
         try {
             coreApi.createAnPlaceOffer(
                     req.getCurrencyCode(),
                     req.getDirection(),
                     req.getPrice(),
                     req.getUseMarketBasedPrice(),
-                    req.getMarketPriceMargin(),
+                    req.getMarketPriceMarginPct(),
                     ParsingUtils.atomicUnitsToCentineros(req.getAmount()), // scale atomic unit to centineros for consistency TODO switch base to atomic units?
                     ParsingUtils.atomicUnitsToCentineros(req.getMinAmount()),
-                    req.getBuyerSecurityDeposit(),
+                    req.getBuyerSecurityDepositPct(),
                     req.getTriggerPrice(),
                     req.getPaymentAccountId(),
                     offer -> {
                         // This result handling consumer's accept operation will return
                         // the new offer to the gRPC client after async placement is done.
-                        OfferInfo offerInfo = toOfferInfo(offer);
+                        OpenOffer openOffer = coreApi.getMyOpenOffer(offer.getId());
+                        OfferInfo offerInfo = OfferInfo.toMyOfferInfo(openOffer);
                         CreateOfferReply reply = CreateOfferReply.newBuilder()
                                 .setOffer(offerInfo.toProtoMessage())
                                 .build();
                         responseObserver.onNext(reply);
                         responseObserver.onCompleted();
+                    },
+                    errorMessage -> {
+                        if (!errorMessageHandler.isErrorHandled())
+                            errorMessageHandler.handleErrorMessage(errorMessage);
                     });
         } catch (Throwable cause) {
             exceptionHandler.handleException(log, cause, responseObserver);
@@ -193,9 +204,9 @@ class GrpcOffersService extends OffersImplBase {
                         new HashMap<>() {{
                             put(getGetOfferMethod().getFullMethodName(), new GrpcCallRateMeter(10, SECONDS));
                             put(getGetMyOfferMethod().getFullMethodName(), new GrpcCallRateMeter(10, SECONDS));
-                            put(getGetOffersMethod().getFullMethodName(), new GrpcCallRateMeter(10, SECONDS));
-                            put(getGetMyOffersMethod().getFullMethodName(), new GrpcCallRateMeter(10, SECONDS));
-                            put(getCreateOfferMethod().getFullMethodName(), new GrpcCallRateMeter(1, SECONDS));
+                            put(getGetOffersMethod().getFullMethodName(), new GrpcCallRateMeter(20, SECONDS));
+                            put(getGetMyOffersMethod().getFullMethodName(), new GrpcCallRateMeter(20, SECONDS));
+                            put(getCreateOfferMethod().getFullMethodName(), new GrpcCallRateMeter(10, SECONDS));
                             put(getCancelOfferMethod().getFullMethodName(), new GrpcCallRateMeter(10, SECONDS));
                         }}
                 )));

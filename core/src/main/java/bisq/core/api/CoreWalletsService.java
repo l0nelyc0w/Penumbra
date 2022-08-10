@@ -89,6 +89,7 @@ import monero.wallet.model.MoneroTxWallet;
 class CoreWalletsService {
 
     private final AppStartupState appStartupState;
+    private final CoreAccountService accountService;
     private final CoreContext coreContext;
     private final Balances balances;
     private final WalletsManager walletsManager;
@@ -110,6 +111,7 @@ class CoreWalletsService {
     @Inject
     public CoreWalletsService(AppStartupState appStartupState,
                               CoreContext coreContext,
+                              CoreAccountService accountService,
                               Balances balances,
                               WalletsManager walletsManager,
                               WalletsSetup walletsSetup,
@@ -120,6 +122,7 @@ class CoreWalletsService {
                               Preferences preferences) {
         this.appStartupState = appStartupState;
         this.coreContext = coreContext;
+        this.accountService = accountService;
         this.balances = balances;
         this.walletsManager = walletsManager;
         this.walletsSetup = walletsSetup;
@@ -141,6 +144,7 @@ class CoreWalletsService {
     }
 
     BalancesInfo getBalances(String currencyCode) {
+        accountService.checkAccountOpen();
         verifyWalletCurrencyCodeIsValid(currencyCode);
         verifyWalletsAreAvailable();
         verifyEncryptedWalletIsUnlocked();
@@ -157,15 +161,26 @@ class CoreWalletsService {
         }
     }
 
-    String getNewDepositSubaddress() {
-        return xmrWalletService.getWallet().createSubaddress(0).getAddress();
+    String getXmrSeed() {
+        return xmrWalletService.getWallet().getMnemonic();
     }
 
-    List<MoneroTxWallet> getXmrTxs(){
+    String getXmrPrimaryAddress() {
+        return xmrWalletService.getWallet().getPrimaryAddress();
+    }
+
+    String getXmrNewSubaddress() {
+        accountService.checkAccountOpen();
+        return xmrWalletService.getNewAddressEntry().getAddressString();
+    }
+
+    List<MoneroTxWallet> getXmrTxs() {
+        accountService.checkAccountOpen();
         return xmrWalletService.getWallet().getTxs();
     }
 
     MoneroTxWallet createXmrTx(List<MoneroDestination> destinations) {
+        accountService.checkAccountOpen();
         verifyWalletsAreAvailable();
         verifyEncryptedWalletIsUnlocked();
         try {
@@ -177,6 +192,7 @@ class CoreWalletsService {
     }
 
     String relayXmrTx(String metadata) {
+        accountService.checkAccountOpen();
         verifyWalletsAreAvailable();
         verifyEncryptedWalletIsUnlocked();
         try {
@@ -484,7 +500,7 @@ class CoreWalletsService {
 
     // Throws a RuntimeException if wallets are encrypted and locked.
     void verifyEncryptedWalletIsUnlocked() {
-        if (walletsManager.areWalletsEncrypted() && tempAesKey == null)
+        if (walletsManager.areWalletsEncrypted() && !accountService.isAccountOpen())
             throw new IllegalStateException("wallet is locked");
     }
 
@@ -501,12 +517,12 @@ class CoreWalletsService {
     }
 
 
-    // Throws a RuntimeException if wallet currency code is not BTC.
+    // Throws a RuntimeException if wallet currency code is not BTC or XMR.
     private void verifyWalletCurrencyCodeIsValid(String currencyCode) {
         if (currencyCode == null || currencyCode.isEmpty())
             return;
 
-        if (!currencyCode.equalsIgnoreCase("BTC"))
+        if (!currencyCode.equalsIgnoreCase("BTC") && !currencyCode.equalsIgnoreCase("XMR"))
             throw new IllegalStateException(format("wallet does not support %s", currencyCode));
     }
 

@@ -17,33 +17,19 @@
 
 package bisq.core.trade;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
+import bisq.common.config.Config;
 import bisq.common.crypto.KeyRing;
 import bisq.common.crypto.PubKeyRing;
 import bisq.common.crypto.Sig;
 import bisq.common.util.Tuple2;
-import bisq.common.util.Utilities;
-import bisq.core.btc.model.XmrAddressEntry;
 import bisq.core.btc.wallet.XmrWalletService;
 import bisq.core.offer.OfferPayload;
-import bisq.core.offer.OfferPayload.Direction;
-import bisq.core.support.dispute.mediation.mediator.Mediator;
+import bisq.core.support.dispute.arbitration.arbitrator.Arbitrator;
 import bisq.core.trade.messages.InitTradeRequest;
-import common.utils.JsonUtils;
-import java.math.BigInteger;
-import java.util.HashSet;
-import java.util.List;
+import bisq.core.util.JsonUtil;
+import java.net.URI;
 import java.util.Objects;
-import java.util.Set;
-import monero.daemon.MoneroDaemon;
-import monero.daemon.model.MoneroOutput;
-import monero.daemon.model.MoneroSubmitTxResult;
-import monero.daemon.model.MoneroTx;
-import monero.wallet.MoneroWallet;
-import monero.wallet.model.MoneroCheckTx;
-import monero.wallet.model.MoneroTxConfig;
-import monero.wallet.model.MoneroTxWallet;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Collection of utilities for trading.
@@ -53,7 +39,11 @@ import monero.wallet.model.MoneroTxWallet;
 public class TradeUtils {
 
     /**
-     * Address to collect Haveno trade fees. TODO (woodser): move to config constants
+     * Get address to collect trade fees.
+     * 
+     * TODO: move to config constants?
+     * 
+     * @return the address which collects trade fees
      */
     public static String FEE_ADDRESS = "42sjRNZYxcyWK3Bd3e6MNaR8zmjNrze8W5fDjttJ152WPReFUj5ung4fw7y73DTtFXjVRGSkonjW5J5XvUXub2xEV3ufoK4";//lolen
 
@@ -337,5 +327,13 @@ public class TradeUtils {
 //            return null;
 //
 //        return new Tuple2<>(multiSigAddress.getAddressString(), payoutAddress);
+    }
+
+    public static void awaitLatch(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

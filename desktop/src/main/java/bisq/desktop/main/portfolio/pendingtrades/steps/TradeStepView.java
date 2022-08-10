@@ -95,8 +95,8 @@ public abstract class TradeStepView extends AnchorPane {
     protected int gridRow = 0;
     private TextField timeLeftTextField;
     private ProgressBar timeLeftProgressBar;
-    private TxIdTextField makerTxIdTextField;
-    private TxIdTextField takerTxIdTextField;
+    private TxIdTextField selfTxIdTextField;
+    private TxIdTextField peerTxIdTextField;
     private TradeStepInfo tradeStepInfo;
     private Subscription makerTxIdSubscription;
     private Subscription takerTxIdSubscription;
@@ -175,26 +175,30 @@ public abstract class TradeStepView extends AnchorPane {
     }
 
     public void activate() {
-        if (makerTxIdTextField != null) {
+        UserThread.execute(() -> { activateAux(); });
+    }
+
+    private void activateAux() {
+        if (selfTxIdTextField != null) {
             if (makerTxIdSubscription != null)
                 makerTxIdSubscription.unsubscribe();
 
             makerTxIdSubscription = EasyBind.subscribe(model.dataModel.makerTxId, id -> {
                 if (!id.isEmpty())
-                    makerTxIdTextField.setup(id);
+                    selfTxIdTextField.setup(id);
                 else
-                    makerTxIdTextField.cleanup();
+                    selfTxIdTextField.cleanup();
             });
         }
-        if (takerTxIdTextField != null) {
+        if (peerTxIdTextField != null) {
             if (takerTxIdSubscription != null)
                 takerTxIdSubscription.unsubscribe();
 
             takerTxIdSubscription = EasyBind.subscribe(model.dataModel.takerTxId, id -> {
                 if (!id.isEmpty())
-                    takerTxIdTextField.setup(id);
+                    peerTxIdTextField.setup(id);
                 else
-                    takerTxIdTextField.cleanup();
+                    peerTxIdTextField.cleanup();
             });
         }
         trade.errorMessageProperty().addListener(errorMessageListener);
@@ -226,7 +230,7 @@ public abstract class TradeStepView extends AnchorPane {
 
         tradePeriodStateSubscription = EasyBind.subscribe(trade.tradePeriodStateProperty(), newValue -> {
             if (newValue != null) {
-                updateTradePeriodState(newValue);
+                UserThread.execute(() -> updateTradePeriodState(newValue));
             }
         });
 
@@ -289,10 +293,10 @@ public abstract class TradeStepView extends AnchorPane {
       if (takerTxIdSubscription != null)
           takerTxIdSubscription.unsubscribe();
 
-      if (makerTxIdTextField != null)
-          makerTxIdTextField.cleanup();
-      if (takerTxIdTextField != null)
-          takerTxIdTextField.cleanup();
+      if (selfTxIdTextField != null)
+          selfTxIdTextField.cleanup();
+      if (peerTxIdTextField != null)
+          peerTxIdTextField.cleanup();
 
       if (errorMessageListener != null)
           trade.errorMessageProperty().removeListener(errorMessageListener);
@@ -332,35 +336,35 @@ public abstract class TradeStepView extends AnchorPane {
                 Res.get("portfolio.pending.tradeInformation"));
         GridPane.setColumnSpan(tradeInfoTitledGroupBg, 2);
 
-        // maker
-        final Tuple3<Label, TxIdTextField, VBox> labelMakerTxIdTextFieldVBoxTuple3 =
+        // self's deposit tx id
+        final Tuple3<Label, TxIdTextField, VBox> labelSelfTxIdTextFieldVBoxTuple3 =
                 addTopLabelTxIdTextField(gridPane, gridRow,
-                        Res.get("shared.depositTransactionId"), // TODO (woodser): need separate labels for maker and taker deposit tx ids
+                        "Your " + Res.get("shared.depositTransactionId").toLowerCase(),
                         Layout.COMPACT_FIRST_ROW_DISTANCE);
 
-        GridPane.setColumnSpan(labelMakerTxIdTextFieldVBoxTuple3.third, 2);
-        makerTxIdTextField = labelMakerTxIdTextFieldVBoxTuple3.second;
+        GridPane.setColumnSpan(labelSelfTxIdTextFieldVBoxTuple3.third, 2);
+        selfTxIdTextField = labelSelfTxIdTextFieldVBoxTuple3.second;
 
-        String makerId = model.dataModel.makerTxId.get();
-        if (!makerId.isEmpty())
-            makerTxIdTextField.setup(makerId);
+        String selfTxId = model.dataModel.isMaker() ? model.dataModel.makerTxId.get() : model.dataModel.takerTxId.get();
+        if (!selfTxId.isEmpty())
+            selfTxIdTextField.setup(selfTxId);
         else
-            makerTxIdTextField.cleanup();
+            selfTxIdTextField.cleanup();
 
-        // taker
-        final Tuple3<Label, TxIdTextField, VBox> labelTakerTxIdTextFieldVBoxTuple3 =
-                addTopLabelTxIdTextField(gridPane, gridRow,
-                        Res.get("shared.depositTransactionId"),
-                        Layout.COMPACT_FIRST_ROW_DISTANCE);
+        // peer's deposit tx id
+        final Tuple3<Label, TxIdTextField, VBox> labelPeerTxIdTextFieldVBoxTuple3 =
+                addTopLabelTxIdTextField(gridPane, ++gridRow,
+                        "Peer's " + Res.get("shared.depositTransactionId").toLowerCase(),
+                        -Layout.GROUP_DISTANCE_WITHOUT_SEPARATOR);
 
-        GridPane.setColumnSpan(labelTakerTxIdTextFieldVBoxTuple3.third, 2);
-        takerTxIdTextField = labelTakerTxIdTextFieldVBoxTuple3.second;
+        GridPane.setColumnSpan(labelPeerTxIdTextFieldVBoxTuple3.third, 2);
+        peerTxIdTextField = labelPeerTxIdTextFieldVBoxTuple3.second;
 
-        String takerId = model.dataModel.takerTxId.get();
-        if (!takerId.isEmpty())
-            takerTxIdTextField.setup(takerId);
+        String peerTxId = model.dataModel.isMaker() ? model.dataModel.takerTxId.get() : model.dataModel.makerTxId.get();
+        if (!peerTxId.isEmpty())
+            peerTxIdTextField.setup(peerTxId);
         else
-            takerTxIdTextField.cleanup();
+            peerTxIdTextField.cleanup();
 
         if (model.dataModel.getTrade() != null) {
             checkNotNull(model.dataModel.getTrade().getOffer(), "Offer must not be null in TradeStepView");
@@ -486,7 +490,7 @@ public abstract class TradeStepView extends AnchorPane {
                 }
                 applyOnDisputeOpened();
 
-                ownDispute = model.dataModel.arbitrationManager.findOwnDispute(trade.getId());
+                ownDispute = model.dataModel.arbitrationManager.findDispute(trade.getId());
                 ownDispute.ifPresent(dispute -> {
                     if (tradeStepInfo != null)
                         tradeStepInfo.setState(TradeStepInfo.State.IN_ARBITRATION_SELF_REQUESTED);
@@ -499,7 +503,7 @@ public abstract class TradeStepView extends AnchorPane {
                 }
                 applyOnDisputeOpened();
 
-                ownDispute = model.dataModel.arbitrationManager.findOwnDispute(trade.getId());
+                ownDispute = model.dataModel.arbitrationManager.findDispute(trade.getId());
                 ownDispute.ifPresent(dispute -> {
                     if (tradeStepInfo != null)
                         tradeStepInfo.setState(TradeStepInfo.State.IN_ARBITRATION_PEER_REQUESTED);
@@ -513,7 +517,7 @@ public abstract class TradeStepView extends AnchorPane {
                 }
                 applyOnDisputeOpened();
 
-                ownDispute = model.dataModel.mediationManager.findOwnDispute(trade.getId());
+                ownDispute = model.dataModel.mediationManager.findDispute(trade.getId());
                 ownDispute.ifPresent(dispute -> {
                     if (tradeStepInfo != null)
                         tradeStepInfo.setState(TradeStepInfo.State.IN_MEDIATION_SELF_REQUESTED);
@@ -525,7 +529,7 @@ public abstract class TradeStepView extends AnchorPane {
                 }
                 applyOnDisputeOpened();
 
-                ownDispute = model.dataModel.mediationManager.findOwnDispute(trade.getId());
+                ownDispute = model.dataModel.mediationManager.findDispute(trade.getId());
                 ownDispute.ifPresent(dispute -> {
                     if (tradeStepInfo != null) {
                         tradeStepInfo.setState(TradeStepInfo.State.IN_MEDIATION_PEER_REQUESTED);
@@ -675,7 +679,7 @@ public abstract class TradeStepView extends AnchorPane {
 
         DisputeResult disputeResult = optionalDispute.get().getDisputeResultProperty().get();
         Contract contract = checkNotNull(trade.getContract(), "contract must not be null");
-        boolean isMyRoleBuyer = contract.isMyRoleBuyer(model.dataModel.getPubKeyRing());
+        boolean isMyRoleBuyer = contract.isMyRoleBuyer(model.dataModel.getPubKeyRingProvider().get());
         String buyerPayoutAmount = model.btcFormatter.formatCoinWithCode(disputeResult.getBuyerPayoutAmount());
         String sellerPayoutAmount = model.btcFormatter.formatCoinWithCode(disputeResult.getSellerPayoutAmount());
         String myPayoutAmount = isMyRoleBuyer ? buyerPayoutAmount : sellerPayoutAmount;
@@ -771,7 +775,7 @@ public abstract class TradeStepView extends AnchorPane {
                     }
                     break;
                 case SECOND_HALF:
-                    if (!trade.isFiatReceived()) {
+                    if (!trade.isPaymentReceived()) {
                         if (tradeStepInfo != null) {
                             tradeStepInfo.setFirstHalfOverWarnTextSupplier(this::getFirstHalfOverWarnText);
                             tradeStepInfo.setState(TradeStepInfo.State.WARN_HALF_PERIOD);

@@ -17,46 +17,30 @@
 
 package bisq.core.btc.setup;
 
-import bisq.core.api.CoreMoneroConnectionsService;
 import bisq.core.btc.nodes.LocalBitcoinNode;
-import bisq.core.btc.nodes.ProxySocketFactory;
-import bisq.core.btc.wallet.HavenoRiskAnalysis;
 
 import bisq.common.config.Config;
 import bisq.common.file.FileUtil;
 
 import org.bitcoinj.core.BlockChain;
-import org.bitcoinj.core.CheckpointManager;
 import org.bitcoinj.core.Context;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.PeerAddress;
 import org.bitcoinj.core.PeerGroup;
 import org.bitcoinj.core.listeners.DownloadProgressTracker;
 import org.bitcoinj.crypto.KeyCrypter;
-import org.bitcoinj.net.BlockingClientManager;
-import org.bitcoinj.net.discovery.DnsDiscovery;
 import org.bitcoinj.net.discovery.PeerDiscovery;
 import org.bitcoinj.script.Script;
 import org.bitcoinj.store.BlockStore;
-import org.bitcoinj.store.BlockStoreException;
 import org.bitcoinj.store.SPVBlockStore;
 import org.bitcoinj.wallet.DeterministicKeyChain;
 import org.bitcoinj.wallet.DeterministicSeed;
-import org.bitcoinj.wallet.KeyChainGroup;
-import org.bitcoinj.wallet.KeyChainGroupStructure;
-import org.bitcoinj.wallet.Protos;
 import org.bitcoinj.wallet.Wallet;
-import org.bitcoinj.wallet.WalletExtension;
-import org.bitcoinj.wallet.WalletProtobufSerializer;
 
 import com.runjva.sourceforge.jsocks.protocol.Socks5Proxy;
 
 import com.google.common.io.Closeables;
 import com.google.common.util.concurrent.AbstractIdleService;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -64,17 +48,11 @@ import javafx.beans.property.SimpleBooleanProperty;
 import org.bouncycastle.crypto.params.KeyParameter;
 
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -88,15 +66,6 @@ import javax.annotation.Nullable;
 import static bisq.common.util.Preconditions.checkDir;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-
-import monero.common.MoneroRpcConnection;
-import monero.common.MoneroUtils;
-import monero.daemon.MoneroDaemon;
-import monero.daemon.MoneroDaemonRpc;
-import monero.daemon.model.MoneroNetworkType;
-import monero.wallet.MoneroWallet;
-import monero.wallet.MoneroWalletRpc;
-import monero.wallet.model.MoneroWalletConfig;
 
 /**
  * <p>Utility class that wraps the boilerplate needed to set up a new SPV bitcoinj app. Instantiate it with a directory
@@ -120,9 +89,6 @@ import monero.wallet.model.MoneroWalletConfig;
  */
 public class WalletConfig extends AbstractIdleService {
 
-    private static final int TOR_SOCKET_TIMEOUT = 120 * 1000;  // 1 sec used in bitcoinj, but since bisq uses Tor we allow more.
-    private static final int TOR_VERSION_EXCHANGE_TIMEOUT = 125 * 1000;  // 5 sec used in bitcoinj, but since bisq uses Tor we allow more.
-
     protected static final Logger log = LoggerFactory.getLogger(WalletConfig.class);
 
     // Monero configuration
@@ -137,15 +103,11 @@ public class WalletConfig extends AbstractIdleService {
 
     protected final NetworkParameters params;
     protected final String filePrefix;
-    protected final CoreMoneroConnectionsService moneroConnectionsManager;
     protected volatile BlockChain vChain;
     protected volatile SPVBlockStore vStore;
-    protected volatile MoneroDaemonRpc vXmrDaemon;
-    protected volatile MoneroWalletRpc vXmrWallet;
     protected volatile Wallet vBtcWallet;
     protected volatile PeerGroup vPeerGroup;
 
-    protected final int rpcBindPort;
     protected final File directory;
     protected volatile File vXmrWalletFile;
     protected volatile File vBtcWalletFile;
@@ -176,21 +138,17 @@ public class WalletConfig extends AbstractIdleService {
      */
     public WalletConfig(NetworkParameters params,
                         File directory,
-                        int rpcBindPort,
-                        CoreMoneroConnectionsService connectionsManager,
                         String filePrefix) {
-        this(new Context(params), directory, rpcBindPort, connectionsManager, filePrefix);
+        this(new Context(params), directory, filePrefix);
     }
 
     /**
      * Creates a new WalletConfig, with the given {@link Context}. Files will be stored in the given directory.
      */
-    private WalletConfig(Context context, File directory, int rpcBindPort, CoreMoneroConnectionsService connectionsManager, String filePrefix) {
+    private WalletConfig(Context context, File directory, String filePrefix) {
         this.context = context;
         this.params = checkNotNull(context.getParams());
         this.directory = checkDir(directory);
-        this.rpcBindPort = rpcBindPort;
-        this.moneroConnectionsManager = connectionsManager;
         this.filePrefix = checkNotNull(filePrefix);
     }
 
@@ -525,109 +483,9 @@ public class WalletConfig extends AbstractIdleService {
         wallet.autosaveToFile(walletFile, 5, TimeUnit.SECONDS, null);
     }
 
-    private Wallet loadWallet(boolean shouldReplayWallet, File walletFile) throws Exception {
-        Wallet wallet;
-        try (FileInputStream walletStream = new FileInputStream(walletFile)) {
-            WalletExtension[] extArray = new WalletExtension[]{};
-            Protos.Wallet proto = WalletProtobufSerializer.parseToProto(walletStream);
-            final WalletProtobufSerializer serializer;
-            serializer = new WalletProtobufSerializer();
-            // Hack to convert bitcoinj 0.14 wallets to bitcoinj 0.15 format
-            serializer.setKeyChainFactory(new HavenoKeyChainFactory());
-            wallet = serializer.readWallet(params, extArray, proto);
-            if (shouldReplayWallet)
-                wallet.reset();
-            maybeAddSegwitKeychain(wallet, null);
-        }
-        return wallet;
-    }
-
-    protected Wallet createWallet() {
-        Script.ScriptType preferredOutputScriptType = Script.ScriptType.P2WPKH;
-        KeyChainGroupStructure structure = new HavenoKeyChainGroupStructure();
-        KeyChainGroup.Builder kcgBuilder = KeyChainGroup.builder(params, structure);
-        if (restoreFromSeed != null) {
-            kcgBuilder.fromSeed(restoreFromSeed, preferredOutputScriptType);
-        } else {
-            // new wallet
-            // btc wallet uses a new random seed.
-            kcgBuilder.fromRandom(preferredOutputScriptType);
-        }
-        return new Wallet(params, kcgBuilder.build());
-    }
-
-    private void maybeMoveOldWalletOutOfTheWay(File walletFile) {
-        if (restoreFromSeed == null) return;
-        if (!walletFile.exists()) return;
-        int counter = 1;
-        File newName;
-        do {
-            newName = new File(walletFile.getParent(), "Backup " + counter + " for " + walletFile.getName());
-            counter++;
-        } while (newName.exists());
-        log.info("Renaming old wallet file {} to {}", walletFile, newName);
-        if (!walletFile.renameTo(newName)) {
-            // This should not happen unless something is really messed up.
-            throw new RuntimeException("Failed to rename wallet for restore");
-        }
-    }
-
-    private PeerGroup createPeerGroup() {
-        PeerGroup peerGroup;
-        // no proxy case.
-        if (socks5Proxy == null) {
-            peerGroup = new PeerGroup(params, vChain);
-        } else {
-            // proxy case (tor).
-            Proxy proxy = new Proxy(Proxy.Type.SOCKS,
-                    new InetSocketAddress(socks5Proxy.getInetAddress(), socks5Proxy.getPort()));
-
-            ProxySocketFactory proxySocketFactory = new ProxySocketFactory(proxy);
-            // We don't use tor mode if we have a local node running
-            BlockingClientManager blockingClientManager = localBitcoinNode.shouldBeUsed() ?
-                    new BlockingClientManager() :
-                    new BlockingClientManager(proxySocketFactory);
-
-            peerGroup = new PeerGroup(params, vChain, blockingClientManager);
-
-            blockingClientManager.setConnectTimeoutMillis(TOR_SOCKET_TIMEOUT);
-            peerGroup.setConnectTimeoutMillis(TOR_VERSION_EXCHANGE_TIMEOUT);
-        }
-
-        if (!localBitcoinNode.shouldBeUsed())
-            peerGroup.setUseLocalhostPeerWhenPossible(false);
-
-        return peerGroup;
-    }
-
     @Override
     protected void shutDown() throws Exception {
-        // Runs in a separate thread.
-        try {
-            Context.propagate(context);
-
-            vBtcWallet.saveToFile(vBtcWalletFile);
-            vBtcWallet = null;
-            log.info("BtcWallet saved to file");
-
-            vStore.close();
-            vStore = null;
-            log.info("SPV file closed");
-
-            vChain = null;
-
-            // vPeerGroup.stop has no timeout and can take very long (10 sec. in my test). So we call it at the end.
-            // We might get likely interrupted by the parent call timeout.
-            if (vPeerGroup.isRunning()) {
-                vPeerGroup.stop();
-                log.info("PeerGroup stopped");
-            } else {
-                log.info("PeerGroup not stopped because it was not running");
-            }
-            vPeerGroup = null;
-        } catch (BlockStoreException e) {
-            throw new IOException(e);
-        }
+        
     }
 
     public NetworkParameters params() {
@@ -647,16 +505,6 @@ public class WalletConfig extends AbstractIdleService {
     public Wallet btcWallet() {
         checkState(state() == State.STARTING || state() == State.RUNNING, "Cannot call until startup is complete");
         return vBtcWallet;
-    }
-
-    public MoneroDaemon getXmrDaemon() {
-        checkState(state() == State.STARTING || state() == State.RUNNING, "Cannot call until startup is complete");
-        return vXmrDaemon;
-    }
-
-    public MoneroWallet getXmrWallet() {
-        checkState(state() == State.STARTING || state() == State.RUNNING, "Cannot call until startup is complete");
-        return vXmrWallet;
     }
 
     public PeerGroup peerGroup() {

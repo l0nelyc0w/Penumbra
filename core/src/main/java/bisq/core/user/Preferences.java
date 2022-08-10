@@ -30,6 +30,7 @@ import bisq.core.locale.TradeCurrency;
 import bisq.core.payment.PaymentAccount;
 import bisq.core.payment.PaymentAccountUtil;
 import bisq.core.provider.fee.FeeService;
+import bisq.core.xmr.MoneroNodeSettings;
 
 import bisq.network.p2p.network.BridgeAddressProvider;
 
@@ -111,8 +112,8 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
     private static final ArrayList<BlockChainExplorer> XMR_MAIN_NET_EXPLORERS = new ArrayList<>(Arrays.asList(
             new BlockChainExplorer("xmrchain.net", "https://xmrchain.net/tx/", "")
     ));
-    private static final ArrayList<BlockChainExplorer> XMR_TEST_NET_EXPLORERS = new ArrayList<>(Arrays.asList(
-            new BlockChainExplorer("testnet.xmrchain.net", "https://testnet.xmrchain.net/tx/", "")
+    private static final ArrayList<BlockChainExplorer> XMR_STAGE_NET_EXPLORERS = new ArrayList<>(Arrays.asList(
+            new BlockChainExplorer("stagenet.xmrchain.net", "https://stagenet.xmrchain.net/tx/", "")
     ));
 
     private static final ArrayList<String> XMR_TX_PROOF_SERVICES_CLEAR_NET = new ArrayList<>(Arrays.asList(
@@ -122,7 +123,6 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
     ));
     private static final ArrayList<String> XMR_TX_PROOF_SERVICES = new ArrayList<>(Arrays.asList(
             "monero3bec7m26vx6si6qo7q7imlaoz45ot5m2b5z2ppgoooo6jx2rqd.onion", // @emzy
-            //"wizxmr4hbdxdszqm5rfyqvceyca5jq62ppvtuznasnk66wvhhvgm3uyd.onion", // @wiz
             "devinxmrwu4jrfq2zmq5kqjpxb44hx7i7didebkwrtvmvygj4uuop2ad.onion" // @devinbileck
     ));
 
@@ -140,6 +140,8 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
     ));
 
     public static final boolean USE_SYMMETRIC_SECURITY_DEPOSIT = true;
+    public static final int CLEAR_DATA_AFTER_DAYS_INITIAL = 99999; // feature effectively disabled until user agrees to settings notification
+    public static final int CLEAR_DATA_AFTER_DAYS_DEFAULT = 60; // used when user has agreed to settings notification
 
 
     // payload is initialized so the default values are available for Property initialization.
@@ -165,7 +167,6 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
     private final String btcNodesFromOptions;
     @Getter
     private final BooleanProperty useStandbyModeProperty = new SimpleBooleanProperty(prefPayload.isUseStandbyMode());
-
 
     ///////////////////////////////////////////////////////////////////////////////////////////
     // Constructor
@@ -239,6 +240,15 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         setFiatCurrencies(prefPayload.getFiatCurrencies());
         setCryptoCurrencies(prefPayload.getCryptoCurrencies());
         GlobalSettings.setDefaultTradeCurrency(preferredTradeCurrency);
+        
+        // If a user has updated and the field was not set and get set to 0 by protobuf
+        // As there is no way to detect that a primitive value field was set we cannot apply
+        // a "marker" value like -1 to it. We also do not want to wrap the value in a new
+        // proto message as thats too much for that feature... So we accept that if the user
+        // sets the value to 0 it will be overwritten by the default at next startup.
+        if (prefPayload.getBsqAverageTrimThreshold() == 0) {
+            prefPayload.setBsqAverageTrimThreshold(0.05);
+        }
 
         setupPreferences();
     }
@@ -248,8 +258,14 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         prefPayload.setUserLanguage(GlobalSettings.getLocale().getLanguage());
         prefPayload.setUserCountry(CountryUtil.getDefaultCountry());
         GlobalSettings.setLocale(new Locale(prefPayload.getUserLanguage(), prefPayload.getUserCountry().code));
-        TradeCurrency preferredTradeCurrency = checkNotNull(CurrencyUtil.getCurrencyByCountryCode(prefPayload.getUserCountry().code),
-                "preferredTradeCurrency must not be null");
+
+        TradeCurrency preferredTradeCurrency = CurrencyUtil.getCurrencyByCountryCode("US"); // default fallback option
+        try {
+            preferredTradeCurrency = CurrencyUtil.getCurrencyByCountryCode(prefPayload.getUserCountry().code);
+        } catch (IllegalArgumentException ia) {
+            log.warn("Could not determine currency for country {} [{}]", prefPayload.getUserCountry().code, ia.toString());
+        }
+
         prefPayload.setPreferredTradeCurrency(preferredTradeCurrency);
         setFiatCurrencies(CurrencyUtil.getMainFiatCurrencies());
         setCryptoCurrencies(CurrencyUtil.getMainCryptoCurrencies());
@@ -257,10 +273,10 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         BaseCurrencyNetwork baseCurrencyNetwork = Config.baseCurrencyNetwork();
         if ("BTC".equals(baseCurrencyNetwork.getCurrencyCode())) {
             setBlockChainExplorerMainNet(BTC_MAIN_NET_EXPLORERS.get(0));
-            setBlockChainExplorerTestNet(BTC_TEST_NET_EXPLORERS.get(0));
+            setBlockChainExplorerStageNet(BTC_TEST_NET_EXPLORERS.get(0));
         } else if ("XMR".equals(baseCurrencyNetwork.getCurrencyCode())) {
             setBlockChainExplorerMainNet(XMR_MAIN_NET_EXPLORERS.get(0));
-            setBlockChainExplorerTestNet(XMR_TEST_NET_EXPLORERS.get(0));
+            setBlockChainExplorerStageNet(XMR_STAGE_NET_EXPLORERS.get(0));
         } else {
             throw new RuntimeException("BaseCurrencyNetwork not defined. BaseCurrencyNetwork=" + baseCurrencyNetwork);
         }
@@ -404,7 +420,7 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         if (Config.baseCurrencyNetwork().isMainnet())
             setBlockChainExplorerMainNet(blockChainExplorer);
         else
-            setBlockChainExplorerTestNet(blockChainExplorer);
+            setBlockChainExplorerStageNet(blockChainExplorer);
     }
 
     public void setTacAccepted(boolean tacAccepted) {
@@ -414,6 +430,11 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
 
     public void setTacAcceptedV120(boolean tacAccepted) {
         prefPayload.setTacAcceptedV120(tacAccepted);
+        requestPersistence();
+    }
+
+    public void setBsqAverageTrimThreshold(double bsqAverageTrimThreshold) {
+        prefPayload.setBsqAverageTrimThreshold(bsqAverageTrimThreshold);
         requestPersistence();
     }
 
@@ -533,6 +554,16 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         requestPersistence();
     }
 
+    public void setBuyScreenCryptoCurrencyCode(String buyScreenCurrencyCode) {
+        prefPayload.setBuyScreenCryptoCurrencyCode(buyScreenCurrencyCode);
+        requestPersistence();
+    }
+
+    public void setSellScreenCryptoCurrencyCode(String sellScreenCurrencyCode) {
+        prefPayload.setSellScreenCryptoCurrencyCode(sellScreenCurrencyCode);
+        requestPersistence();
+    }
+
     public void setIgnoreTradersList(List<String> ignoreTradersList) {
         prefPayload.setIgnoreTradersList(ignoreTradersList);
         requestPersistence();
@@ -601,7 +632,7 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         requestPersistence();
     }
 
-    private void setBlockChainExplorerTestNet(BlockChainExplorer blockChainExplorerTestNet) {
+    private void setBlockChainExplorerStageNet(BlockChainExplorer blockChainExplorerTestNet) {
         prefPayload.setBlockChainExplorerTestNet(blockChainExplorerTestNet);
         requestPersistence();
     }
@@ -620,7 +651,7 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
     public void setBridgeAddresses(List<String> bridgeAddresses) {
         prefPayload.setBridgeAddresses(bridgeAddresses);
         // We call that before shutdown so we dont want a delay here
-        requestPersistence();
+        persistenceManager.forcePersistNow();
     }
 
     // Only used from PB but keep it explicit as it may be used from the client and then we want to persist
@@ -631,17 +662,17 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
 
     public void setBridgeOptionOrdinal(int bridgeOptionOrdinal) {
         prefPayload.setBridgeOptionOrdinal(bridgeOptionOrdinal);
-        requestPersistence();
+        persistenceManager.forcePersistNow();
     }
 
     public void setTorTransportOrdinal(int torTransportOrdinal) {
         prefPayload.setTorTransportOrdinal(torTransportOrdinal);
-        requestPersistence();
+        persistenceManager.forcePersistNow();
     }
 
     public void setCustomBridges(String customBridges) {
         prefPayload.setCustomBridges(customBridges);
-        requestPersistence();
+        persistenceManager.forcePersistNow();
     }
 
     public void setBitcoinNodesOptionOrdinal(int bitcoinNodesOptionOrdinal) {
@@ -693,6 +724,11 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         requestPersistence();
     }
 
+    public void setClearDataAfterDays(int value) {
+        prefPayload.setClearDataAfterDays(value);
+        requestPersistence();
+    }
+
     public void setShowOffersMatchingMyAccounts(boolean value) {
         prefPayload.setShowOffersMatchingMyAccounts(value);
         requestPersistence();
@@ -708,6 +744,10 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         requestPersistence();
     }
 
+    public void setMoneroNodeSettings(MoneroNodeSettings settings) {
+        prefPayload.setMoneroNodeSettings(settings);
+        requestPersistence();
+    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
     // Getter
@@ -738,9 +778,10 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         switch (baseCurrencyNetwork) {
             case XMR_MAINNET:
                 return prefPayload.getBlockChainExplorerMainNet();
-            case XMR_TESTNET:
             case XMR_STAGENET:
                 return prefPayload.getBlockChainExplorerTestNet();
+            case XMR_LOCAL:
+                return prefPayload.getBlockChainExplorerTestNet(); // TODO: no testnet explorer for private testnet
             default:
                 throw new RuntimeException("BaseCurrencyNetwork not defined. BaseCurrencyNetwork=" + baseCurrencyNetwork);
         }
@@ -751,9 +792,10 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         switch (baseCurrencyNetwork) {
             case XMR_MAINNET:
                 return BTC_MAIN_NET_EXPLORERS;
-            case XMR_TESTNET:
             case XMR_STAGENET:
                 return BTC_TEST_NET_EXPLORERS;
+            case XMR_LOCAL:
+                return BTC_TEST_NET_EXPLORERS; // TODO: no testnet explorer for private testnet
             default:
                 throw new RuntimeException("BaseCurrencyNetwork not defined. BaseCurrencyNetwork=" + baseCurrencyNetwork);
         }
@@ -948,6 +990,8 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
 
         void setTacAcceptedV120(boolean tacAccepted);
 
+        void setBsqAverageTrimThreshold(double bsqAverageTrimThreshold);
+
         void setAutoConfirmSettings(AutoConfirmSettings autoConfirmSettings);
 
         void setHideNonAccountPaymentMethods(boolean hideNonAccountPaymentMethods);
@@ -957,5 +1001,7 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         void setDenyApiTaker(boolean value);
 
         void setNotifyOnPreRelease(boolean value);
+
+        void setMoneroNodeSettings(MoneroNodeSettings settings);
     }
 }

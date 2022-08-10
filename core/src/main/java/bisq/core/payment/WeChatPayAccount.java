@@ -17,24 +17,41 @@
 
 package bisq.core.payment;
 
+import bisq.core.api.model.PaymentAccountFormField;
 import bisq.core.locale.FiatCurrency;
+import bisq.core.locale.TradeCurrency;
 import bisq.core.payment.payload.PaymentAccountPayload;
 import bisq.core.payment.payload.PaymentMethod;
 import bisq.core.payment.payload.WeChatPayAccountPayload;
 
+import java.util.List;
+
 import lombok.EqualsAndHashCode;
+import lombok.NonNull;
 
 @EqualsAndHashCode(callSuper = true)
 public final class WeChatPayAccount extends PaymentAccount {
 
+    public static final List<TradeCurrency> SUPPORTED_CURRENCIES = List.of(new FiatCurrency("CNY"));
+
     public WeChatPayAccount() {
         super(PaymentMethod.WECHAT_PAY);
-        setSingleTradeCurrency(new FiatCurrency("CNY"));
+        setSingleTradeCurrency(SUPPORTED_CURRENCIES.get(0));
     }
 
     @Override
     protected PaymentAccountPayload createPayload() {
         return new WeChatPayAccountPayload(paymentMethod.getId(), id);
+    }
+
+    @Override
+    public @NonNull List<TradeCurrency> getSupportedCurrencies() {
+        return SUPPORTED_CURRENCIES;
+    }
+
+    @Override
+    public @NonNull List<PaymentAccountFormField.FieldId> getInputFieldIds() {
+        throw new RuntimeException("Not implemented");
     }
 
     public void setAccountNr(String accountNr) {

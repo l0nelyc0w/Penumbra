@@ -17,7 +17,8 @@
 
 package bisq.core.support.dispute.refund;
 
-import bisq.core.btc.setup.WalletsSetup;
+import bisq.core.api.CoreMoneroConnectionsService;
+import bisq.core.api.CoreNotificationService;
 import bisq.core.btc.wallet.TradeWalletService;
 import bisq.core.btc.wallet.XmrWalletService;
 import bisq.core.locale.Res;
@@ -33,10 +34,9 @@ import bisq.core.support.dispute.messages.OpenNewDisputeMessage;
 import bisq.core.support.dispute.messages.PeerOpenedDisputeMessage;
 import bisq.core.support.messages.ChatMessage;
 import bisq.core.support.messages.SupportMessage;
+import bisq.core.trade.ClosedTradableManager;
 import bisq.core.trade.Trade;
 import bisq.core.trade.TradeManager;
-import bisq.core.trade.closed.ClosedTradableManager;
-
 import bisq.network.p2p.AckMessageSourceType;
 import bisq.network.p2p.NodeAddress;
 import bisq.network.p2p.P2PService;
@@ -71,7 +71,8 @@ public final class RefundManager extends DisputeManager<RefundDisputeList> {
     public RefundManager(P2PService p2PService,
                          TradeWalletService tradeWalletService,
                          XmrWalletService walletService,
-                         WalletsSetup walletsSetup,
+                         CoreMoneroConnectionsService connectionService,
+                         CoreNotificationService notificationService,
                          TradeManager tradeManager,
                          ClosedTradableManager closedTradableManager,
                          OpenOfferManager openOfferManager,
@@ -80,7 +81,7 @@ public final class RefundManager extends DisputeManager<RefundDisputeList> {
                          RefundDisputeListService refundDisputeListService,
                          Config config,
                          PriceFeedService priceFeedService) {
-        super(p2PService, tradeWalletService, walletService, walletsSetup, tradeManager, closedTradableManager,
+        super(p2PService, tradeWalletService, walletService, connectionService, notificationService, tradeManager, closedTradableManager,
                 openOfferManager, keyRing, refundDisputeListService, config, priceFeedService);
     }
 
@@ -198,7 +199,7 @@ public final class RefundManager extends DisputeManager<RefundDisputeList> {
 
         dispute.setDisputeResult(disputeResult);
 
-        Optional<Trade> tradeOptional = tradeManager.getTradeById(tradeId);
+        Optional<Trade> tradeOptional = tradeManager.getOpenTrade(tradeId);
         if (tradeOptional.isPresent()) {
             Trade trade = tradeOptional.get();
             if (trade.getDisputeState() == Trade.DisputeState.REFUND_REQUESTED ||
@@ -213,7 +214,7 @@ public final class RefundManager extends DisputeManager<RefundDisputeList> {
         sendAckMessage(chatMessage, dispute.getAgentPubKeyRing(), true, null);
 
         // set state after payout as we call swapTradeEntryToAvailableEntry
-        if (tradeManager.getTradeById(tradeId).isPresent()) {
+        if (tradeManager.getOpenTrade(tradeId).isPresent()) {
             tradeManager.closeDisputedTrade(tradeId, Trade.DisputeState.REFUND_REQUEST_CLOSED);
         } else {
             Optional<OpenOffer> openOfferOptional = openOfferManager.getOpenOfferById(tradeId);

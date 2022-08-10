@@ -23,6 +23,7 @@ import bisq.core.monetary.Price;
 import bisq.core.offer.CreateOfferService;
 import bisq.core.offer.Offer;
 import bisq.core.offer.OfferBookService;
+import bisq.core.offer.OfferDirection;
 import bisq.core.offer.OfferFilter;
 import bisq.core.offer.OfferFilter.Result;
 import bisq.core.offer.OfferUtil;
@@ -30,9 +31,9 @@ import bisq.core.offer.OpenOffer;
 import bisq.core.offer.OpenOfferManager;
 import bisq.core.payment.PaymentAccount;
 import bisq.core.user.User;
-
+import bisq.core.util.PriceUtil;
 import bisq.common.crypto.KeyRing;
-
+import bisq.common.handlers.ErrorMessageHandler;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.utils.Fiat;
@@ -45,7 +46,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -58,8 +58,7 @@ import static bisq.common.util.MathUtils.exactMultiply;
 import static bisq.common.util.MathUtils.roundDoubleToLong;
 import static bisq.common.util.MathUtils.scaleUpByPowerOf10;
 import static bisq.core.locale.CurrencyUtil.isCryptoCurrency;
-import static bisq.core.offer.OfferPayload.Direction;
-import static bisq.core.offer.OfferPayload.Direction.BUY;
+import static bisq.core.offer.OfferDirection.BUY;
 import static bisq.core.payment.PaymentAccountUtil.isPaymentAccountValidForOffer;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
@@ -81,7 +80,6 @@ class CoreOffersService {
     private final OfferBookService offerBookService;
     private final OfferFilter offerFilter;
     private final OpenOfferManager openOfferManager;
-    private final OfferUtil offerUtil;
     private final User user;
     private final XmrWalletService xmrWalletService;
 
@@ -103,7 +101,6 @@ class CoreOffersService {
         this.offerBookService = offerBookService;
         this.offerFilter = offerFilter;
         this.openOfferManager = openOfferManager;
-        this.offerUtil = offerUtil;
         this.user = user;
         this.xmrWalletService = xmrWalletService;
     }
@@ -121,7 +118,8 @@ class CoreOffersService {
     }
 
     Offer getMyOffer(String id) {
-        return offerBookService.getOffers().stream()
+        return openOfferManager.getObservableList().stream()
+                .map(OpenOffer::getOffer)
                 .filter(o -> o.getId().equals(id))
                 .filter(o -> o.isMyOffer(keyRing))
                 .findAny().orElseThrow(() ->
@@ -143,16 +141,17 @@ class CoreOffersService {
     }
 
     List<Offer> getMyOffers(String direction, String currencyCode) {
-
-        // get my offers posted to books
-        List<Offer> offers = offerBookService.getOffers().stream()
+        
+        // get my open offers
+        List<Offer> offers = openOfferManager.getObservableList().stream()
+                .map(OpenOffer::getOffer)
                 .filter(o -> o.isMyOffer(keyRing))
                 .filter(o -> offerMatchesDirectionAndCurrency(o, direction, currencyCode))
                 .sorted(priceComparator(direction))
                 .collect(Collectors.toList());
 
         // remove unreserved offers
-        Set<Offer> unreservedOffers = getUnreservedOffers(offers);
+        Set<Offer> unreservedOffers = getUnreservedOffers(offers); // TODO (woodser): optimize performance, probably don't call here
         offers.removeAll(unreservedOffers);
 
         // remove my unreserved offers from offer manager
@@ -161,12 +160,6 @@ class CoreOffersService {
           unreservedOpenOffers.add(openOfferManager.getOpenOfferById(unreservedOffer.getId()).get());
         }
         openOfferManager.removeOpenOffers(unreservedOpenOffers, null);
-
-        // set offer state
-        for (Offer offer : offers) {
-            Optional<OpenOffer> openOffer = openOfferManager.getOpenOfferById(offer.getId());
-            if (openOffer.isPresent()) offer.setState(openOffer.get().getState() == OpenOffer.State.AVAILABLE ? Offer.State.AVAILABLE : Offer.State.NOT_AVAILABLE);
-        }
 
         return offers;
     }
@@ -177,8 +170,12 @@ class CoreOffersService {
         // collect reserved key images and check for duplicate funds
         List<String> allKeyImages = new ArrayList<String>();
         for (Offer offer : offers) {
+          if (offer.getOfferPayload().getReserveTxKeyImages() == null) continue;
           for (String keyImage : offer.getOfferPayload().getReserveTxKeyImages()) {
-            if (!allKeyImages.add(keyImage)) unreservedOffers.add(offer);
+            if (!allKeyImages.add(keyImage)) {
+                log.warn("Key image {} belongs to another offer, removing offer {}", keyImage, offer.getId()); // TODO (woodser): this is list, not set, so not checking for duplicates
+                unreservedOffers.add(offer);
+            }
           }
         }
 
@@ -192,9 +189,13 @@ class CoreOffersService {
 
         // check for offers with spent key images
         for (Offer offer : offers) {
+          if (offer.getOfferPayload().getReserveTxKeyImages() == null) continue;
           if (unreservedOffers.contains(offer)) continue;
           for (String keyImage : offer.getOfferPayload().getReserveTxKeyImages()) {
-            if (spentKeyImages.contains(keyImage)) unreservedOffers.add(offer);
+            if (spentKeyImages.contains(keyImage)) {
+                log.warn("Offer {} reserved funds have already been spent with key image {}", offer.getId(), keyImage);
+                unreservedOffers.add(offer);
+            }
           }
         }
 
@@ -217,9 +218,10 @@ class CoreOffersService {
                              long amountAsLong,
                              long minAmountAsLong,
                              double buyerSecurityDeposit,
-                             long triggerPrice,
+                             String triggerPriceAsString,
                              String paymentAccountId,
-                             Consumer<Offer> resultHandler) {
+                             Consumer<Offer> resultHandler,
+                             ErrorMessageHandler errorMessageHandler) {
         coreWalletsService.verifyWalletsAreAvailable();
         coreWalletsService.verifyEncryptedWalletIsUnlocked();
 
@@ -229,7 +231,7 @@ class CoreOffersService {
 
         String upperCaseCurrencyCode = currencyCode.toUpperCase();
         String offerId = createOfferService.getRandomOfferId();
-        Direction direction = Direction.valueOf(directionAsString.toUpperCase());
+        OfferDirection direction = OfferDirection.valueOf(directionAsString.toUpperCase());
         Price price = Price.valueOf(upperCaseCurrencyCode, priceStringToLong(priceAsString, upperCaseCurrencyCode));
         Coin amount = Coin.valueOf(amountAsLong);
         Coin minAmount = Coin.valueOf(minAmountAsLong);
@@ -252,16 +254,16 @@ class CoreOffersService {
         boolean useSavingsWallet = true;
         //noinspection ConstantConditions
         placeOffer(offer,
-                buyerSecurityDeposit,
-                triggerPrice,
+                triggerPriceAsString,
                 useSavingsWallet,
-                transaction -> resultHandler.accept(offer));
+                transaction -> resultHandler.accept(offer),
+                errorMessageHandler);
     }
 
     // Edit a placed offer.
     Offer editOffer(String offerId,
                     String currencyCode,
-                    Direction direction,
+                    OfferDirection direction,
                     Price price,
                     boolean useMarketBasedPrice,
                     double marketPriceMargin,
@@ -303,27 +305,24 @@ class CoreOffersService {
     }
 
     private void placeOffer(Offer offer,
-                            double buyerSecurityDeposit,
-                            long triggerPrice,
+                            String triggerPriceAsString,
                             boolean useSavingsWallet,
-                            Consumer<Transaction> resultHandler) {
+                            Consumer<Transaction> resultHandler,
+                            ErrorMessageHandler errorMessageHandler) {
+        long triggerPriceAsLong = PriceUtil.getMarketPriceAsLong(triggerPriceAsString, offer.getCurrencyCode());
         openOfferManager.placeOffer(offer,
-                buyerSecurityDeposit,
                 useSavingsWallet,
-                triggerPrice,
+                triggerPriceAsLong,
                 resultHandler::accept,
-                log::error);
-
-        if (offer.getErrorMessage() != null)
-            throw new IllegalStateException(offer.getErrorMessage());
+                errorMessageHandler);
     }
 
     private boolean offerMatchesDirectionAndCurrency(Offer offer,
                                                      String direction,
                                                      String currencyCode) {
         var offerOfWantedDirection = offer.getDirection().name().equalsIgnoreCase(direction);
-        var offerInWantedCurrency = offer.getOfferPayload().getCounterCurrencyCode()
-                .equalsIgnoreCase(currencyCode);
+        var counterAssetCode = isCryptoCurrency(currencyCode) ? offer.getOfferPayload().getBaseCurrencyCode() : offer.getOfferPayload().getCounterCurrencyCode(); // TODO: crypto pairs invert base and counter currencies
+        var offerInWantedCurrency = counterAssetCode.equalsIgnoreCase(currencyCode);
         return offerOfWantedDirection && offerInWantedCurrency;
     }
 

@@ -36,16 +36,12 @@ import static org.apache.commons.lang3.StringUtils.capitalize;
 
 
 import bisq.cli.GrpcClient;
+import bisq.core.api.model.PaymentAccountForm;
 
 /**
  * Convenience GrpcClient wrapper for bots using gRPC services.
- *
- * TODO Consider if the duplication smell is bad enough to force a BotClient user
- *  to use the GrpcClient instead (and delete this class).  But right now, I think it is
- *  OK because moving some of the non-gRPC related methods to GrpcClient is even smellier.
- *
  */
-@SuppressWarnings({"JavaDoc", "unused"})
+@SuppressWarnings({"unused"})
 @Slf4j
 public class BotClient {
 
@@ -124,6 +120,8 @@ public class BotClient {
      * @param minAmountInSatoshis
      * @param priceMarginAsPercent
      * @param securityDepositAsPercent
+     * @param feeCurrency
+     * @param triggerPrice
      * @return OfferInfo
      */
     public OfferInfo createOfferAtMarketBasedPrice(PaymentAccount paymentAccount,
@@ -132,14 +130,16 @@ public class BotClient {
                                                    long amountInSatoshis,
                                                    long minAmountInSatoshis,
                                                    double priceMarginAsPercent,
-                                                   double securityDepositAsPercent) {
+                                                   double securityDepositAsPercent,
+                                                   String triggerPrice) {
         return grpcClient.createMarketBasedPricedOffer(direction,
                 currencyCode,
                 amountInSatoshis,
                 minAmountInSatoshis,
                 priceMarginAsPercent,
                 securityDepositAsPercent,
-                paymentAccount.getId());
+                paymentAccount.getId(),
+                triggerPrice);
     }
 
     /**
@@ -151,6 +151,7 @@ public class BotClient {
      * @param minAmountInSatoshis
      * @param fixedOfferPriceAsString
      * @param securityDepositAsPercent
+     * @param feeCurrency
      * @return OfferInfo
      */
     public OfferInfo createOfferAtFixedPrice(PaymentAccount paymentAccount,
@@ -230,7 +231,7 @@ public class BotClient {
      * @return boolean
      */
     public boolean isTakerDepositFeeTxConfirmed(String tradeId) {
-        return grpcClient.getTrade(tradeId).getIsDepositConfirmed();
+        return grpcClient.getTrade(tradeId).getIsDepositUnlocked();
     }
 
     /**
@@ -239,7 +240,7 @@ public class BotClient {
      * @return boolean
      */
     public boolean isTradePaymentStartedSent(String tradeId) {
-        return grpcClient.getTrade(tradeId).getIsFiatSent();
+        return grpcClient.getTrade(tradeId).getIsPaymentSent();
     }
 
     /**
@@ -248,7 +249,7 @@ public class BotClient {
      * @return boolean
      */
     public boolean isTradePaymentReceivedConfirmationSent(String tradeId) {
-        return grpcClient.getTrade(tradeId).getIsFiatReceived();
+        return grpcClient.getTrade(tradeId).getIsPaymentReceived();
     }
 
     /**
@@ -276,15 +277,6 @@ public class BotClient {
      */
     public void sendConfirmPaymentReceivedMessage(String tradeId) {
         grpcClient.confirmPaymentReceived(tradeId);
-    }
-
-    /**
-     * Sends a 'keep funds in wallet message' for a trade with the given tradeId,
-     * or throws an exception.
-     * @param tradeId
-     */
-    public void sendKeepFundsMessage(String tradeId) {
-        grpcClient.keepFunds(tradeId);
     }
 
     /**

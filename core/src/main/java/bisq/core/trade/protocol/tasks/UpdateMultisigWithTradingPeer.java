@@ -30,7 +30,6 @@ import bisq.network.p2p.SendDirectMessageListener;
 import bisq.common.app.Version;
 import bisq.common.taskrunner.TaskRunner;
 
-import java.util.Arrays;
 import java.util.Date;
 import java.util.UUID;
 
@@ -57,7 +56,7 @@ public class UpdateMultisigWithTradingPeer extends TradeTask {
 
             // fetch relevant trade info
             XmrWalletService walletService = processModel.getProvider().getXmrWalletService();
-            MoneroWallet multisigWallet = walletService.getMultisigWallet(trade.getId());
+            MoneroWallet multisigWallet = walletService.getMultisigWallet(trade.getId()); // closed in BuyerPreparesPaymentStartedMessage
 
             // skip if multisig wallet does not need updated
             if (!multisigWallet.isMultisigImportNeeded()) {
@@ -72,9 +71,8 @@ public class UpdateMultisigWithTradingPeer extends TradeTask {
               public void onVerifiedTradeMessage(TradeMessage message, NodeAddress sender) {
                 if (!(message instanceof UpdateMultisigResponse)) return;
                 UpdateMultisigResponse response = (UpdateMultisigResponse) message;
-                multisigWallet.importMultisigHex(Arrays.asList(response.getUpdatedMultisigHex()));
                 multisigWallet.sync();
-                multisigWallet.save();
+                multisigWallet.importMultisigHex(response.getUpdatedMultisigHex());
                 trade.removeListener(updateMultisigResponseListener);
                 complete();
               }
@@ -83,7 +81,7 @@ public class UpdateMultisigWithTradingPeer extends TradeTask {
 
             // get updated multisig hex
             multisigWallet.sync();
-            String updatedMultisigHex = multisigWallet.getMultisigHex();
+            String updatedMultisigHex = multisigWallet.exportMultisigHex();
 
             // message trading peer with updated multisig hex
             UpdateMultisigRequest message = new UpdateMultisigRequest(

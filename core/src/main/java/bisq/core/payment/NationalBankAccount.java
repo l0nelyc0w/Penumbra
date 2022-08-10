@@ -17,15 +17,24 @@
 
 package bisq.core.payment;
 
+import bisq.core.api.model.PaymentAccountFormField;
+import bisq.core.locale.CurrencyUtil;
+import bisq.core.locale.TradeCurrency;
 import bisq.core.payment.payload.BankAccountPayload;
 import bisq.core.payment.payload.NationalBankAccountPayload;
 import bisq.core.payment.payload.PaymentAccountPayload;
 import bisq.core.payment.payload.PaymentMethod;
 
+import java.util.List;
+
 import lombok.EqualsAndHashCode;
+import lombok.NonNull;
 
 @EqualsAndHashCode(callSuper = true)
 public final class NationalBankAccount extends CountryBasedPaymentAccount implements SameCountryRestrictedBankAccount {
+
+    public static final List<TradeCurrency> SUPPORTED_CURRENCIES = CurrencyUtil.getAllFiatCurrencies();
+
     public NationalBankAccount() {
         super(PaymentMethod.NATIONAL_BANK);
     }
@@ -33,6 +42,16 @@ public final class NationalBankAccount extends CountryBasedPaymentAccount implem
     @Override
     protected PaymentAccountPayload createPayload() {
         return new NationalBankAccountPayload(paymentMethod.getId(), id);
+    }
+
+    @Override
+    public @NonNull List<TradeCurrency> getSupportedCurrencies() {
+        return SUPPORTED_CURRENCIES;
+    }
+
+    @Override
+    public @NonNull List<PaymentAccountFormField.FieldId> getInputFieldIds() {
+        throw new RuntimeException("Not implemented");
     }
 
     @Override

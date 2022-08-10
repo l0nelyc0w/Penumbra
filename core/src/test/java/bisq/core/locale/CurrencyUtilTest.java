@@ -79,7 +79,7 @@ public class CurrencyUtilTest {
 
         // For testnet its ok
         assertEquals(CurrencyUtil.findAsset(assetRegistry, "MOCK_COIN",
-                BaseCurrencyNetwork.XMR_TESTNET).get().getTickerSymbol(), "MOCK_COIN");
+                BaseCurrencyNetwork.XMR_LOCAL).get().getTickerSymbol(), "MOCK_COIN");
         assertEquals(Coin.Network.TESTNET, mockTestnetCoin.getNetwork());
 
         // For regtest its still found
@@ -90,7 +90,7 @@ public class CurrencyUtilTest {
         // We test if we are not on mainnet to get the mainnet coin
         Coin ether = new Ether();
         assertEquals(CurrencyUtil.findAsset(assetRegistry, "ETH",
-                BaseCurrencyNetwork.XMR_TESTNET).get().getTickerSymbol(), "ETH");
+                BaseCurrencyNetwork.XMR_LOCAL).get().getTickerSymbol(), "ETH");
         assertEquals(CurrencyUtil.findAsset(assetRegistry, "ETH",
                 BaseCurrencyNetwork.XMR_STAGENET).get().getTickerSymbol(), "ETH");
         assertEquals(Coin.Network.MAINNET, ether.getNetwork());
@@ -98,7 +98,6 @@ public class CurrencyUtilTest {
 
     @Test
     public void testGetNameAndCodeOfRemovedAsset() {
-        assertEquals("Bitcoin Cash (BCH)", CurrencyUtil.getNameAndCode("BCH"));
         assertEquals("N/A (XYZ)", CurrencyUtil.getNameAndCode("XYZ"));
     }
 

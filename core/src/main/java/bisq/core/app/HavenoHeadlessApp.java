@@ -36,6 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 public class HavenoHeadlessApp implements HeadlessApp {
     @Getter
     private static Runnable shutDownHandler;
+    @Setter
+    public static Runnable onGracefulShutDownHandler;
 
     @Setter
     protected Injector injector;
@@ -50,6 +52,7 @@ public class HavenoHeadlessApp implements HeadlessApp {
         shutDownHandler = this::stop;
     }
 
+    @Override
     public void startApplication() {
         try {
             bisqSetup = injector.getInstance(HavenoSetup.class);
@@ -95,20 +98,24 @@ public class HavenoHeadlessApp implements HeadlessApp {
                 lastVersion, Version.VERSION));
 
         corruptedStorageFileHandler.getFiles().ifPresent(files -> log.warn("getCorruptedDatabaseFiles. files={}", files));
-        tradeManager.setTakeOfferRequestErrorMessageHandler(errorMessage -> log.error("onTakeOfferRequestErrorMessageHandler"));
+        tradeManager.setTakeOfferRequestErrorMessageHandler(errorMessage -> log.error("Error taking offer: " + errorMessage));
     }
 
     public void stop() {
         if (!shutDownRequested) {
             UserThread.runAfter(() -> {
-                gracefulShutDownHandler.gracefulShutDown(() -> {
-                    log.debug("App shutdown complete");
-                });
+                if (gracefulShutDownHandler != null) {
+                    gracefulShutDownHandler.gracefulShutDown(() -> {
+                        log.debug("App shutdown complete");
+                        if (onGracefulShutDownHandler != null) onGracefulShutDownHandler.run();
+                    });
+                } else if (onGracefulShutDownHandler != null) {
+                    onGracefulShutDownHandler.run();
+                }
             }, 200, TimeUnit.MILLISECONDS);
             shutDownRequested = true;
         }
     }
-
 
     ///////////////////////////////////////////////////////////////////////////////////////////
     // UncaughtExceptionHandler implementation

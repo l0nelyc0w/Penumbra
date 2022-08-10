@@ -37,23 +37,23 @@ import javax.annotation.Nullable;
 @EqualsAndHashCode(callSuper = true)
 @Value
 public final class PayoutTxPublishedMessage extends TradeMailboxMessage {
-    private final String signedMultisigTxHex;
     private final NodeAddress senderNodeAddress;
+    private final String payoutTxHex;
 
     // Added in v1.4.0
     @Nullable
     private final SignedWitness signedWitness;
 
     public PayoutTxPublishedMessage(String tradeId,
-                                    String signedMultisigTxHex,
                                     NodeAddress senderNodeAddress,
-                                    @Nullable SignedWitness signedWitness) {
+                                    @Nullable SignedWitness signedWitness,
+                                    String payoutTxHex) {
         this(tradeId,
-                signedMultisigTxHex,
                 senderNodeAddress,
                 signedWitness,
                 UUID.randomUUID().toString(),
-                Version.getP2PMessageVersion());
+                Version.getP2PMessageVersion(),
+                payoutTxHex);
     }
 
 
@@ -62,24 +62,23 @@ public final class PayoutTxPublishedMessage extends TradeMailboxMessage {
     ///////////////////////////////////////////////////////////////////////////////////////////
 
     private PayoutTxPublishedMessage(String tradeId,
-                                     String signedMultisigTxHex,
                                      NodeAddress senderNodeAddress,
                                      @Nullable SignedWitness signedWitness,
                                      String uid,
                                      String messageVersion) {
         super(messageVersion, tradeId, uid);
-        this.signedMultisigTxHex = signedMultisigTxHex;
         this.senderNodeAddress = senderNodeAddress;
         this.signedWitness = signedWitness;
+        this.payoutTxHex = payoutTxHex;
     }
 
     @Override
     public protobuf.NetworkEnvelope toProtoNetworkEnvelope() {
         protobuf.PayoutTxPublishedMessage.Builder builder = protobuf.PayoutTxPublishedMessage.newBuilder()
                 .setTradeId(tradeId)
-                .setSignedMultisigTxHex(signedMultisigTxHex)
                 .setSenderNodeAddress(senderNodeAddress.toProtoMessage())
-                .setUid(uid);
+                .setUid(uid)
+                .setPayoutTxHex(payoutTxHex);
         Optional.ofNullable(signedWitness).ifPresent(signedWitness -> builder.setSignedWitness(signedWitness.toProtoSignedWitness()));
         return getNetworkEnvelopeBuilder().setPayoutTxPublishedMessage(builder).build();
     }
@@ -92,19 +91,19 @@ public final class PayoutTxPublishedMessage extends TradeMailboxMessage {
                 SignedWitness.fromProto(protoSignedWitness) :
                 null;
         return new PayoutTxPublishedMessage(proto.getTradeId(),
-                proto.getSignedMultisigTxHex(),
                 NodeAddress.fromProto(proto.getSenderNodeAddress()),
                 signedWitness,
                 proto.getUid(),
-                messageVersion);
+                messageVersion,
+                proto.getPayoutTxHex());
     }
 
     @Override
     public String toString() {
         return "PayoutTxPublishedMessage{" +
-                "\n     signedMultisigTxHex=" + signedMultisigTxHex +
-                ",\n     senderNodeAddress=" + senderNodeAddress +
+                "\n     senderNodeAddress=" + senderNodeAddress +
                 ",\n     signedWitness=" + signedWitness +
+                ",\n     payoutTxHex=" + payoutTxHex +
                 "\n} " + super.toString();
     }
 }

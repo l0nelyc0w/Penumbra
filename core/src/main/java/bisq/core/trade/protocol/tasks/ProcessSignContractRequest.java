@@ -26,12 +26,11 @@ import bisq.common.util.Utilities;
 import bisq.core.trade.ArbitratorTrade;
 import bisq.core.trade.Contract;
 import bisq.core.trade.Trade;
-import bisq.core.trade.TradeUtils;
+import bisq.core.trade.Trade.State;
 import bisq.core.trade.messages.SignContractRequest;
 import bisq.core.trade.messages.SignContractResponse;
-import bisq.core.trade.protocol.TradeListener;
 import bisq.core.trade.protocol.TradingPeer;
-import bisq.network.p2p.AckMessage;
+import bisq.core.util.JsonUtil;
 import bisq.network.p2p.NodeAddress;
 import bisq.network.p2p.SendDirectMessageListener;
 import java.util.Date;
@@ -43,7 +42,6 @@ public class ProcessSignContractRequest extends TradeTask {
 
     private boolean ack1 = false;
     private boolean ack2 = false;
-    private boolean failed = false;
 
     @SuppressWarnings({"unused"})
     public ProcessSignContractRequest(TaskRunner taskHandler, Trade trade) {
@@ -73,8 +71,8 @@ public class ProcessSignContractRequest extends TradeTask {
           }
 
           // create and sign contract
-          Contract contract = TradeUtils.createContract(trade);
-          String contractAsJson = Utilities.objectToJson(contract);
+          Contract contract = trade.createContract();
+          String contractAsJson = JsonUtil.objectToJson(contract);
           String signature = Sig.sign(processModel.getKeyRing().getSignatureKeyPair().getPrivate(), contractAsJson);
 
           // save contract and signature
@@ -91,21 +89,10 @@ public class ProcessSignContractRequest extends TradeTask {
           // complete on successful ack messages
           TradeListener ackListener = new TradeListener() {
               @Override
-              public void onAckMessage(AckMessage ackMessage, NodeAddress sender) {
-                  if (!ackMessage.getSourceMsgClassName().equals(SignContractResponse.class.getSimpleName())) return;
-                  if (ackMessage.isSuccess()) {
-                     if (sender.equals(trade.getTradingPeerNodeAddress())) ack1 = true;
-                     if (sender.equals(trade.getArbitratorNodeAddress())) ack2 = true;
-                     if (trade instanceof ArbitratorTrade ? ack1 && ack2 : ack1) { // only arbitrator sends response to both peers
-                         trade.removeListener(this);
-                         complete();
-                     }
-                  } else {
-                      if (!failed) {
-                          failed = true;
-                          failed(ackMessage.getErrorMessage()); // TODO: (woodser): only fail once? build into task?
-                      }
-                  }
+              public void onArrived() {
+                  log.info("{} arrived: trading peer={}; offerId={}; uid={}", response.getClass().getSimpleName(), recipient1, trade.getId());
+                  ack1 = true;
+                  if (ack1 && (recipient2 == null || ack2)) complete();
               }
           };
           trade.addListener(ackListener);

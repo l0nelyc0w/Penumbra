@@ -19,6 +19,7 @@ package bisq.core.trade.protocol.tasks;
 
 import bisq.common.taskrunner.TaskRunner;
 import bisq.core.offer.Offer;
+import bisq.core.offer.OfferDirection;
 import bisq.core.offer.OfferPayload;
 import bisq.core.trade.Trade;
 import bisq.core.trade.TradeUtils;
@@ -55,9 +56,7 @@ public class ArbitratorProcessesReserveTx extends TradeTask {
             // process reserve tx with expected terms
             BigInteger tradeFee = ParsingUtils.coinToAtomicUnits(isFromTaker ? trade.getTakerFee() : offer.getMakerFee());
             BigInteger depositAmount = ParsingUtils.coinToAtomicUnits(isFromBuyer ? offer.getBuyerSecurityDeposit() : offer.getAmount().add(offer.getSellerSecurityDeposit()));
-            TradeUtils.processTradeTx(
-                    processModel.getXmrWalletService().getDaemon(),
-                    processModel.getXmrWalletService().getWallet(),
+            trade.getXmrWalletService().verifyTradeTx(
                     request.getPayoutAddress(),
                     depositAmount,
                     tradeFee,

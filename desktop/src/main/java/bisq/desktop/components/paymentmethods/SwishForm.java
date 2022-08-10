@@ -19,9 +19,6 @@ package bisq.desktop.components.paymentmethods;
 
 import bisq.desktop.components.InputTextField;
 import bisq.desktop.util.FormBuilder;
-import bisq.desktop.util.Layout;
-import bisq.desktop.util.validation.SwishValidator;
-
 import bisq.core.account.witness.AccountAgeWitnessService;
 import bisq.core.locale.Res;
 import bisq.core.locale.TradeCurrency;
@@ -29,6 +26,7 @@ import bisq.core.payment.PaymentAccount;
 import bisq.core.payment.SwishAccount;
 import bisq.core.payment.payload.PaymentAccountPayload;
 import bisq.core.payment.payload.SwishAccountPayload;
+import bisq.core.payment.validation.SwishValidator;
 import bisq.core.util.coin.CoinFormatter;
 import bisq.core.util.validation.InputValidator;
 
@@ -45,7 +43,6 @@ import static bisq.desktop.util.FormBuilder.addTopLabelTextField;
 public class SwishForm extends PaymentMethodForm {
     private final SwishAccount swishAccount;
     private final SwishValidator swishValidator;
-    private InputTextField mobileNrInputTextField;
 
     public SwishForm(PaymentAccount paymentAccount,
                      AccountAgeWitnessService accountAgeWitnessService,
@@ -80,7 +77,7 @@ public class SwishForm extends PaymentMethodForm {
             updateFromInputs();
         });
 
-        mobileNrInputTextField = FormBuilder.addInputTextField(gridPane, ++gridRow,
+        InputTextField mobileNrInputTextField = FormBuilder.addInputTextField(gridPane, ++gridRow,
                 Res.get("payment.mobile"));
         mobileNrInputTextField.setValidator(swishValidator);
         mobileNrInputTextField.textProperty().addListener((ov, oldValue, newValue) -> {
@@ -97,14 +94,13 @@ public class SwishForm extends PaymentMethodForm {
 
     @Override
     protected void autoFillNameTextField() {
-        setAccountNameWithString(mobileNrInputTextField.getText());
+        setAccountNameWithString(swishAccount.getMobileNr());
     }
 
     @Override
-    public void addFormForDisplayAccount() {
+    public void addFormForEditAccount() {
         gridRowFrom = gridRow;
-        addTopLabelTextField(gridPane, gridRow, Res.get("payment.account.name"),
-                swishAccount.getAccountName(), Layout.FIRST_ROW_AND_GROUP_DISTANCE);
+        addAccountNameTextFieldWithAutoFillToggleButton();
         addCompactTopLabelTextField(gridPane, ++gridRow, Res.get("shared.paymentMethod"),
                 Res.get(swishAccount.getPaymentMethod().getId()));
         addCompactTopLabelTextField(gridPane, ++gridRow, Res.get("payment.account.owner"),

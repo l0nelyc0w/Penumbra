@@ -103,7 +103,7 @@ public class AccountView extends ActivatableView<TabPane, Void> {
         notificationTab.setText(Res.get("account.menu.notifications").toUpperCase());
         passwordTab.setText(Res.get("account.menu.password").toUpperCase());
         seedWordsTab.setText(Res.get("account.menu.seedWords").toUpperCase());
-        walletInfoTab.setText(Res.get("account.menu.walletInfo").toUpperCase());
+        //walletInfoTab.setText(Res.get("account.menu.walletInfo").toUpperCase());
         backupTab.setText(Res.get("account.menu.backup").toUpperCase());
 
         navigationListener = (viewPath, data) -> {
@@ -125,7 +125,13 @@ public class AccountView extends ActivatableView<TabPane, Void> {
         };
 
         keyEventEventHandler = event -> {
-            if (Utilities.isAltOrCtrlPressed(KeyCode.D, event) && mediatorRegistrationTab == null) {
+            if (Utilities.isAltOrCtrlPressed(KeyCode.R, event) && arbitratorRegistrationTab == null) {
+                closeOtherExtraTabs(arbitratorRegistrationTab);
+                arbitratorRegistrationTab = new Tab(Res.get("account.tab.arbitratorRegistration").toUpperCase());
+                arbitratorRegistrationTab.setClosable(true);
+                root.getTabs().add(arbitratorRegistrationTab);
+                navigation.navigateTo(MainView.class, AccountView.class, ArbitratorRegistrationView.class);
+            } else if (Utilities.isAltOrCtrlPressed(KeyCode.D, event) && mediatorRegistrationTab == null) {
                 closeOtherExtraTabs(mediatorRegistrationTab);
                 mediatorRegistrationTab = new Tab(Res.get("account.tab.mediatorRegistration").toUpperCase());
                 mediatorRegistrationTab.setClosable(true);
@@ -264,14 +270,6 @@ public class AccountView extends ActivatableView<TabPane, Void> {
             else
                 navigation.navigateTo(MainView.class, AccountView.class, FiatAccountsView.class);
         }
-
-        String key = "accountPrivacyInfo";
-        if (!DevEnv.isDevMode())
-            new Popup()
-                    .headLine(Res.get("account.info.headline"))
-                    .backgroundInfo(Res.get("account.info.msg"))
-                    .dontShowAgainId(key)
-                    .show();
     }
 
     @Override

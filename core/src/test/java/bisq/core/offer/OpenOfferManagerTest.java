@@ -6,6 +6,8 @@ import bisq.core.trade.TradableList;
 import bisq.network.p2p.P2PService;
 import bisq.network.p2p.peers.PeerManager;
 
+import bisq.common.crypto.KeyRing;
+import bisq.common.crypto.KeyStorage;
 import bisq.common.file.CorruptedStorageFileHandler;
 import bisq.common.handlers.ErrorMessageHandler;
 import bisq.common.handlers.ResultHandler;
@@ -34,8 +36,9 @@ public class OpenOfferManagerTest {
     public void setUp() throws Exception {
         var corruptedStorageFileHandler = mock(CorruptedStorageFileHandler.class);
         var storageDir = Files.createTempDirectory("storage").toFile();
-        persistenceManager = new PersistenceManager<>(storageDir, null, corruptedStorageFileHandler);
-        signedOfferPersistenceManager = new PersistenceManager<>(storageDir, null, corruptedStorageFileHandler);
+        var keyRing = new KeyRing(new KeyStorage(storageDir));
+        persistenceManager = new PersistenceManager<>(storageDir, null, corruptedStorageFileHandler, keyRing);
+        signedOfferPersistenceManager = new PersistenceManager<>(storageDir, null, corruptedStorageFileHandler, keyRing);
         coreContext = new CoreContext();
     }
 
@@ -55,8 +58,8 @@ public class OpenOfferManagerTest {
         final OpenOfferManager manager = new OpenOfferManager(coreContext,
                 null,
                 null,
-                null,
                 p2PService,
+                null,
                 null,
                 null,
                 null,
@@ -101,8 +104,8 @@ public class OpenOfferManagerTest {
         final OpenOfferManager manager = new OpenOfferManager(coreContext,
                 null,
                 null,
-                null,
                 p2PService,
+                null,
                 null,
                 null,
                 null,
@@ -141,8 +144,8 @@ public class OpenOfferManagerTest {
         final OpenOfferManager manager = new OpenOfferManager(coreContext,
                 null,
                 null,
-                null,
                 p2PService,
+                null,
                 null,
                 null,
                 null,

@@ -19,7 +19,6 @@ package bisq.desktop.main.portfolio.openoffer;
 
 import bisq.desktop.common.model.ActivatableWithDataModel;
 import bisq.desktop.common.model.ViewModel;
-import bisq.desktop.main.PriceUtil;
 import bisq.desktop.util.DisplayUtils;
 import bisq.desktop.util.GUIUtil;
 
@@ -29,6 +28,8 @@ import bisq.core.monetary.Price;
 import bisq.core.offer.Offer;
 import bisq.core.offer.OpenOffer;
 import bisq.core.util.FormattingUtils;
+import bisq.core.util.PriceUtil;
+import bisq.core.util.VolumeUtil;
 import bisq.core.util.coin.CoinFormatter;
 
 import bisq.network.p2p.P2PService;
@@ -120,7 +121,7 @@ class OpenOffersViewModel extends ActivatableWithDataModel<OpenOffersDataModel> 
     }
 
     String getVolume(OpenOfferListItem item) {
-        return (item != null) ? DisplayUtils.formatVolume(item.getOffer(), false, 0) + " " + item.getOffer().getCurrencyCode() : "";
+        return (item != null) ? VolumeUtil.formatVolume(item.getOffer(), false, 0) + " " + item.getOffer().getCurrencyCode() : "";
     }
 
     String getDirectionLabel(OpenOfferListItem item) {

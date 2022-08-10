@@ -49,7 +49,9 @@ public class GrpcServer {
     public GrpcServer(CoreContext coreContext,
                       Config config,
                       PasswordAuthInterceptor passwordAuthInterceptor,
+                      GrpcAccountService accountService,
                       GrpcDisputeAgentsService disputeAgentsService,
+                      GrpcDisputesService disputesService,
                       GrpcHelpService helpService,
                       GrpcOffersService offersService,
                       GrpcPaymentAccountsService paymentAccountsService,
@@ -60,10 +62,12 @@ public class GrpcServer {
                       GrpcTradesService tradesService,
                       GrpcWalletsService walletsService,
                       GrpcNotificationsService notificationsService,
-                      GrpcMoneroConnectionsService moneroConnectionsService) {
+                      GrpcMoneroConnectionsService moneroConnectionsService,
+                      GrpcMoneroNodeService moneroNodeService) {
         this.server = ServerBuilder.forPort(config.apiPort)
-                .executor(UserThread.getExecutor())
+                .addService(interceptForward(accountService, accountService.interceptors()))
                 .addService(interceptForward(disputeAgentsService, disputeAgentsService.interceptors()))
+                .addService(interceptForward(disputesService, disputesService.interceptors()))
                 .addService(interceptForward(helpService, helpService.interceptors()))
                 .addService(interceptForward(offersService, offersService.interceptors()))
                 .addService(interceptForward(paymentAccountsService, paymentAccountsService.interceptors()))
@@ -75,6 +79,7 @@ public class GrpcServer {
                 .addService(interceptForward(walletsService, walletsService.interceptors()))
                 .addService(interceptForward(notificationsService, notificationsService.interceptors()))
                 .addService(interceptForward(moneroConnectionsService, moneroConnectionsService.interceptors()))
+                .addService(interceptForward(moneroNodeService, moneroNodeService.interceptors()))
                 .intercept(passwordAuthInterceptor)
                 .build();
         coreContext.setApiUser(true);

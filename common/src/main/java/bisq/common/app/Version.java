@@ -30,7 +30,7 @@ public class Version {
     // VERSION = 0.5.0 introduces proto buffer for the P2P network and local DB and is a not backward compatible update
     // Therefore all sub versions start again with 1
     // We use semantic versioning with major, minor and patch
-    public static final String VERSION = "1.6.2";
+    public static final String VERSION = "0.0.1";
 
     /**
      * Holds a list of the tagged resource files for optimizing the getData requests.
@@ -106,7 +106,7 @@ public class Version {
         return p2pMessageVersion;
     }
 
-    // The version for the crypto network (XMR_Mainnet = 0, XMR_Testnet = 1, XMR_Regtest = 2, ...)
+    // The version for the crypto network (XMR_Mainnet = 0, XMR_LOCAL = 1, XMR_Regtest = 2, ...)
     private static int BASE_CURRENCY_NETWORK;
 
     public static void setBaseCryptoNetworkId(int baseCryptoNetworkId) {

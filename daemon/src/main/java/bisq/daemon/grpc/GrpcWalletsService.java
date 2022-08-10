@@ -17,6 +17,7 @@
 
 package bisq.daemon.grpc;
 
+import bisq.common.UserThread;
 import bisq.core.api.CoreApi;
 import bisq.core.api.model.AddressBalanceInfo;
 import bisq.core.api.model.TxFeeRateInfo;
@@ -27,8 +28,10 @@ import bisq.proto.grpc.GetBalancesReply;
 import bisq.proto.grpc.GetBalancesRequest;
 import bisq.proto.grpc.GetFundingAddressesReply;
 import bisq.proto.grpc.GetFundingAddressesRequest;
-import bisq.proto.grpc.GetNewDepositSubaddressRequest;
-import bisq.proto.grpc.GetNewDepositSubaddressReply;
+import bisq.proto.grpc.GetXmrNewSubaddressRequest;
+import bisq.proto.grpc.GetXmrPrimaryAddressReply;
+import bisq.proto.grpc.GetXmrPrimaryAddressRequest;
+import bisq.proto.grpc.GetXmrNewSubaddressReply;
 import bisq.proto.grpc.GetXmrTxsRequest;
 import bisq.proto.grpc.GetXmrTxsReply;
 import bisq.proto.grpc.CreateXmrTxRequest;
@@ -39,6 +42,8 @@ import bisq.proto.grpc.GetTransactionReply;
 import bisq.proto.grpc.GetTransactionRequest;
 import bisq.proto.grpc.GetTxFeeRateReply;
 import bisq.proto.grpc.GetTxFeeRateRequest;
+import bisq.proto.grpc.GetXmrSeedReply;
+import bisq.proto.grpc.GetXmrSeedRequest;
 import bisq.proto.grpc.LockWalletReply;
 import bisq.proto.grpc.LockWalletRequest;
 import bisq.proto.grpc.RemoveWalletPasswordReply;
@@ -102,10 +107,40 @@ class GrpcWalletsService extends WalletsImplBase {
 
     @Override
     public void getBalances(GetBalancesRequest req, StreamObserver<GetBalancesReply> responseObserver) {
+        UserThread.execute(() -> { // TODO (woodser): Balances.updateBalances() runs on UserThread for JFX components, so call from user thread, else the properties may not be updated. remove JFX properties or push delay into CoreWalletsService.getXmrBalances()?
+            try {
+                var balances = coreApi.getBalances(req.getCurrencyCode());
+                var reply = GetBalancesReply.newBuilder()
+                        .setBalances(balances.toProtoMessage())
+                        .build();
+                responseObserver.onNext(reply);
+                responseObserver.onCompleted();
+            } catch (Throwable cause) {
+                exceptionHandler.handleException(log, cause, responseObserver);
+            }
+        });
+    }
+
+    @Override
+    public void getXmrSeed(GetXmrSeedRequest req,
+                                    StreamObserver<GetXmrSeedReply> responseObserver) {
         try {
-            var balances = coreApi.getBalances(req.getCurrencyCode());
-            var reply = GetBalancesReply.newBuilder()
-                    .setBalances(balances.toProtoMessage())
+            var reply = GetXmrSeedReply.newBuilder()
+                    .setSeed(coreApi.getXmrSeed())
+                    .build();
+            responseObserver.onNext(reply);
+            responseObserver.onCompleted();
+        } catch (Throwable cause) {
+            exceptionHandler.handleException(log, cause, responseObserver);
+        }
+    }
+    
+    @Override
+    public void getXmrPrimaryAddress(GetXmrPrimaryAddressRequest req,
+                                     StreamObserver<GetXmrPrimaryAddressReply> responseObserver) {
+        try {
+            var reply = GetXmrPrimaryAddressReply.newBuilder()
+                    .setPrimaryAddress(coreApi.getXmrPrimaryAddress())
                     .build();
             responseObserver.onNext(reply);
             responseObserver.onCompleted();
@@ -115,11 +150,11 @@ class GrpcWalletsService extends WalletsImplBase {
     }
 
     @Override
-    public void getNewDepositSubaddress(GetNewDepositSubaddressRequest req,
-                                    StreamObserver<GetNewDepositSubaddressReply> responseObserver) {
+    public void getXmrNewSubaddress(GetXmrNewSubaddressRequest req,
+                                    StreamObserver<GetXmrNewSubaddressReply> responseObserver) {
         try {
-            String subaddress = coreApi.getNewDepositSubaddress();
-            var reply = GetNewDepositSubaddressReply.newBuilder()
+            String subaddress = coreApi.getXmrNewSubaddress();
+            var reply = GetXmrNewSubaddressReply.newBuilder()
                     .setSubaddress(subaddress)
                     .build();
             responseObserver.onNext(reply);

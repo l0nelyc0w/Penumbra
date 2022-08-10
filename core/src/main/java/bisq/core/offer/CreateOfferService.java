@@ -18,8 +18,8 @@
 package bisq.core.offer;
 
 import bisq.core.btc.TxFeeEstimationService;
-import bisq.core.btc.wallet.BtcWalletService;
 import bisq.core.btc.wallet.Restrictions;
+import bisq.core.btc.wallet.XmrWalletService;
 import bisq.core.locale.CurrencyUtil;
 import bisq.core.locale.Res;
 import bisq.core.monetary.Price;
@@ -28,8 +28,8 @@ import bisq.core.payment.PaymentAccount;
 import bisq.core.payment.PaymentAccountUtil;
 import bisq.core.provider.price.MarketPrice;
 import bisq.core.provider.price.PriceFeedService;
-import bisq.core.support.dispute.mediation.mediator.Mediator;
-import bisq.core.support.dispute.mediation.mediator.MediatorManager;
+import bisq.core.support.dispute.arbitration.arbitrator.Arbitrator;
+import bisq.core.support.dispute.arbitration.arbitrator.ArbitratorManager;
 import bisq.core.trade.statistics.TradeStatisticsManager;
 import bisq.core.user.Preferences;
 import bisq.core.user.User;
@@ -39,7 +39,7 @@ import bisq.network.p2p.NodeAddress;
 import bisq.network.p2p.P2PService;
 
 import bisq.common.app.Version;
-import bisq.common.crypto.PubKeyRing;
+import bisq.common.crypto.PubKeyRingProvider;
 import bisq.common.util.Tuple2;
 import bisq.common.util.Utilities;
 
@@ -58,6 +58,8 @@ import java.util.UUID;
 
 import lombok.extern.slf4j.Slf4j;
 
+import static bisq.core.payment.payload.PaymentMethod.HAL_CASH_ID;
+
 @Slf4j
 @Singleton
 public class CreateOfferService {
@@ -65,11 +67,11 @@ public class CreateOfferService {
     private final TxFeeEstimationService txFeeEstimationService;
     private final PriceFeedService priceFeedService;
     private final P2PService p2PService;
-    private final PubKeyRing pubKeyRing;
+    private final PubKeyRingProvider pubKeyRingProvider;
     private final User user;
-    private final BtcWalletService btcWalletService;
+    private final XmrWalletService xmrWalletService;
     private final TradeStatisticsManager tradeStatisticsManager;
-    private final MediatorManager mediatorManager;
+    private final ArbitratorManager arbitratorManager;
 
 
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -81,20 +83,20 @@ public class CreateOfferService {
                               TxFeeEstimationService txFeeEstimationService,
                               PriceFeedService priceFeedService,
                               P2PService p2PService,
-                              PubKeyRing pubKeyRing,
+                              PubKeyRingProvider pubKeyRingProvider,
                               User user,
-                              BtcWalletService btcWalletService,
+                              XmrWalletService xmrWalletService,
                               TradeStatisticsManager tradeStatisticsManager,
-                              MediatorManager mediatorManager) {
+                              ArbitratorManager arbitratorManager) {
         this.offerUtil = offerUtil;
         this.txFeeEstimationService = txFeeEstimationService;
         this.priceFeedService = priceFeedService;
         this.p2PService = p2PService;
-        this.pubKeyRing = pubKeyRing;
+        this.pubKeyRingProvider = pubKeyRingProvider;
         this.user = user;
-        this.btcWalletService = btcWalletService;
+        this.xmrWalletService = xmrWalletService;
         this.tradeStatisticsManager = tradeStatisticsManager;
-        this.mediatorManager = mediatorManager;
+        this.arbitratorManager = arbitratorManager;
     }
 
 
@@ -109,7 +111,7 @@ public class CreateOfferService {
     }
 
     public Offer createAndGetOffer(String offerId,
-                                   OfferPayload.Direction direction,
+                                   OfferDirection direction,
                                    String currencyCode,
                                    Coin amount,
                                    Coin minAmount,
@@ -143,7 +145,7 @@ public class CreateOfferService {
         NodeAddress makerAddress = p2PService.getAddress();
         boolean useMarketBasedPriceValue = useMarketBasedPrice &&
                 isMarketPriceAvailable(currencyCode) &&
-                !paymentAccount.isHalCashAccount();
+                !paymentAccount.hasPaymentMethodWithId(HAL_CASH_ID);
 
         long priceAsLong = price != null && !useMarketBasedPriceValue ? price.getValue() : 0L;
         double marketPriceMarginParam = useMarketBasedPriceValue ? marketPriceMargin : 0;
@@ -165,8 +167,6 @@ public class CreateOfferService {
         String bankId = PaymentAccountUtil.getBankId(paymentAccount);
         List<String> acceptedBanks = PaymentAccountUtil.getAcceptedBanks(paymentAccount);
         double sellerSecurityDeposit = getSellerSecurityDepositAsDouble(buyerSecurityDepositAsDouble);
-        Coin txFeeFromFeeService = getEstimatedFeeAndTxVsize(amount, direction, buyerSecurityDepositAsDouble, sellerSecurityDeposit).first;
-        Coin txFeeToUse = txFee.isPositive() ? txFee : txFeeFromFeeService;
         Coin makerFeeAsCoin = offerUtil.getMakerFee(amount);
         Coin buyerSecurityDepositAsCoin = getBuyerSecurityDeposit(amount, buyerSecurityDepositAsDouble);
         Coin sellerSecurityDepositAsCoin = getSellerSecurityDeposit(amount, sellerSecurityDeposit);
@@ -192,13 +192,14 @@ public class CreateOfferService {
                 makerFeeAsCoin);
 
         // select signing arbitrator
-        Mediator arbitrator = DisputeAgentSelection.getLeastUsedArbitrator(tradeStatisticsManager, mediatorManager); // TODO (woodser): using mediator manager for arbitrators
+        Arbitrator arbitrator = DisputeAgentSelection.getLeastUsedArbitrator(tradeStatisticsManager, arbitratorManager);
+        if (arbitrator == null) throw new RuntimeException("No arbitrators available");
 
         OfferPayload offerPayload = new OfferPayload(offerId,
                 creationTime,
                 makerAddress,
-                pubKeyRing,
-                OfferPayload.Direction.valueOf(direction.name()),
+                pubKeyRingProvider.get(),
+                OfferDirection.valueOf(direction.name()),
                 priceAsLong,
                 marketPriceMarginParam,
                 useMarketBasedPriceValue,
@@ -214,8 +215,8 @@ public class CreateOfferService {
                 bankId,
                 acceptedBanks,
                 Version.VERSION,
-                btcWalletService.getLastBlockSeenHeight(),
-                txFeeToUse.value,
+                xmrWalletService.getWallet().getHeight(),
+                0, // todo: remove txFeeToUse from data model
                 makerFeeAsCoin.value,
                 buyerSecurityDepositAsCoin.value,
                 sellerSecurityDepositAsCoin.value,
@@ -238,7 +239,7 @@ public class CreateOfferService {
     }
 
     public Tuple2<Coin, Integer> getEstimatedFeeAndTxVsize(Coin amount,
-                                                           OfferPayload.Direction direction,
+                                                           OfferDirection direction,
                                                            double buyerSecurityDeposit,
                                                            double sellerSecurityDeposit) {
         Coin reservedFundsForOffer = getReservedFundsForOffer(direction,
@@ -249,7 +250,7 @@ public class CreateOfferService {
                 offerUtil.getMakerFee(amount));
     }
 
-    public Coin getReservedFundsForOffer(OfferPayload.Direction direction,
+    public Coin getReservedFundsForOffer(OfferDirection direction,
                                          Coin amount,
                                          double buyerSecurityDeposit,
                                          double sellerSecurityDeposit) {
@@ -264,7 +265,7 @@ public class CreateOfferService {
         return reservedFundsForOffer;
     }
 
-    public Coin getSecurityDeposit(OfferPayload.Direction direction,
+    public Coin getSecurityDeposit(OfferDirection direction,
                                    Coin amount,
                                    double buyerSecurityDeposit,
                                    double sellerSecurityDeposit) {

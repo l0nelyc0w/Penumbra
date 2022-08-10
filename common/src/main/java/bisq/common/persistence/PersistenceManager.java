@@ -21,11 +21,15 @@ import bisq.common.Timer;
 import bisq.common.UserThread;
 import bisq.common.app.DevEnv;
 import bisq.common.config.Config;
+import bisq.common.crypto.CryptoException;
+import bisq.common.crypto.Encryption;
+import bisq.common.crypto.KeyRing;
 import bisq.common.file.CorruptedStorageFileHandler;
 import bisq.common.file.FileUtil;
 import bisq.common.handlers.ResultHandler;
 import bisq.common.proto.persistable.PersistableEnvelope;
 import bisq.common.proto.persistable.PersistenceProtoResolver;
+import bisq.common.util.GcUtil;
 import bisq.common.util.Utilities;
 
 import com.google.inject.Inject;
@@ -34,6 +38,7 @@ import javax.inject.Named;
 
 import java.nio.file.Path;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -113,7 +118,6 @@ public class PersistenceManager<T extends PersistableEnvelope> {
             completeHandler.handleResult();
             return;
         }
-
 
         // We don't know from which thread we are called so we map to user thread
         UserThread.execute(() -> {
@@ -209,6 +213,8 @@ public class PersistenceManager<T extends PersistableEnvelope> {
     private final File dir;
     private final PersistenceProtoResolver persistenceProtoResolver;
     private final CorruptedStorageFileHandler corruptedStorageFileHandler;
+    @Nullable
+    private final KeyRing keyRing;
     private File storageFile;
     private T persistable;
     private String fileName;
@@ -229,10 +235,12 @@ public class PersistenceManager<T extends PersistableEnvelope> {
     @Inject
     public PersistenceManager(@Named(Config.STORAGE_DIR) File dir,
                               PersistenceProtoResolver persistenceProtoResolver,
-                              CorruptedStorageFileHandler corruptedStorageFileHandler) {
+                              CorruptedStorageFileHandler corruptedStorageFileHandler,
+                              @Nullable KeyRing keyRing) {
         this.dir = checkDir(dir);
         this.persistenceProtoResolver = persistenceProtoResolver;
         this.corruptedStorageFileHandler = corruptedStorageFileHandler;
+        this.keyRing = keyRing;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -318,7 +326,11 @@ public class PersistenceManager<T extends PersistableEnvelope> {
         new Thread(() -> {
             T persisted = getPersisted(fileName);
             if (persisted != null) {
-                UserThread.execute(() -> resultHandler.accept(persisted));
+                UserThread.execute(() -> {
+                    resultHandler.accept(persisted);
+
+                    GcUtil.maybeReleaseMemory();
+                });
             } else {
                 UserThread.execute(orElse);
             }
@@ -338,6 +350,10 @@ public class PersistenceManager<T extends PersistableEnvelope> {
             log.warn("We have started the shut down routine already. We ignore that getPersisted call.");
             return null;
         }
+        if (keyRing != null && !keyRing.isUnlocked()) {
+            log.warn("Account is not open yet, ignoring getPersisted.");
+            return null;
+        }
 
         readCalled.set(true);
 
@@ -348,7 +364,21 @@ public class PersistenceManager<T extends PersistableEnvelope> {
 
         long ts = System.currentTimeMillis();
         try (FileInputStream fileInputStream = new FileInputStream(storageFile)) {
-            protobuf.PersistableEnvelope proto = protobuf.PersistableEnvelope.parseDelimitedFrom(fileInputStream);
+            protobuf.PersistableEnvelope proto;
+            if (keyRing != null) {
+                byte[] encryptedBytes = fileInputStream.readAllBytes();
+                try {
+                    byte[] decryptedBytes = Encryption.decryptPayloadWithHmac(encryptedBytes, keyRing.getSymmetricKey());
+                    proto = protobuf.PersistableEnvelope.parseFrom(decryptedBytes);
+                } catch (CryptoException ce) {
+                    log.warn("Expected encrypted persisted file, attempting to getPersisted without decryption");
+                    ByteArrayInputStream bs = new ByteArrayInputStream(encryptedBytes);
+                    proto = protobuf.PersistableEnvelope.parseDelimitedFrom(bs);
+                }
+            } else {
+                proto = protobuf.PersistableEnvelope.parseDelimitedFrom(fileInputStream);
+            }
+
             //noinspection unchecked
             T persistableEnvelope = (T) persistenceProtoResolver.fromProto(proto);
             log.info("Reading {} completed in {} ms", fileName, System.currentTimeMillis() - ts);
@@ -382,6 +412,11 @@ public class PersistenceManager<T extends PersistableEnvelope> {
             return;
         }
 
+        if (!initCalled.get()) {
+            log.warn("requestPersistence() called before init. Ignoring request");
+            return;
+        }
+
         persistenceRequested = true;
 
         // If we have not initialized yet we postpone the start of the timer and call maybeStartTimerForPersistence at
@@ -404,7 +439,16 @@ public class PersistenceManager<T extends PersistableEnvelope> {
         }
     }
 
+    public void forcePersistNow() {
+        // Tor Bridges settings are edited before app init completes, require persistNow to be forced, see writeToDisk()
+        persistNow(null, true);
+    }
+
     public void persistNow(@Nullable Runnable completeHandler) {
+        persistNow(completeHandler, false);
+    }
+
+    private void persistNow(@Nullable Runnable completeHandler, boolean force) {
         long ts = System.currentTimeMillis();
         try {
             // The serialisation is done on the user thread to avoid threading issue with potential mutations of the
@@ -414,7 +458,7 @@ public class PersistenceManager<T extends PersistableEnvelope> {
             // For the write to disk task we use a thread. We do not have any issues anymore if the persistable objects
             // gets mutated while the thread is running as we have serialized it already and do not operate on the
             // reference to the persistable object.
-            getWriteToDiskExecutor().execute(() -> writeToDisk(serialized, completeHandler));
+            getWriteToDiskExecutor().execute(() -> writeToDisk(serialized, completeHandler, force));
 
             long duration = System.currentTimeMillis() - ts;
             if (duration > 100) {
@@ -427,10 +471,19 @@ public class PersistenceManager<T extends PersistableEnvelope> {
         }
     }
 
-    public void writeToDisk(protobuf.PersistableEnvelope serialized, @Nullable Runnable completeHandler) {
-        if (!allServicesInitialized.get()) {
+    private void writeToDisk(protobuf.PersistableEnvelope serialized, @Nullable Runnable completeHandler, boolean force) {
+        if (!allServicesInitialized.get() && !force) {
             log.warn("Application has not completed start up yet so we do not permit writing data to disk.");
-            UserThread.execute(completeHandler);
+            if (completeHandler != null) {
+                UserThread.execute(completeHandler);
+            }
+            return;
+        }
+        if (keyRing != null && !keyRing.isUnlocked()) {
+            log.warn("Account is not open, ignoring writeToDisk.");
+            if (completeHandler != null) {
+                UserThread.execute(completeHandler);
+            }
             return;
         }
 
@@ -453,7 +506,12 @@ public class PersistenceManager<T extends PersistableEnvelope> {
 
             fileOutputStream = new FileOutputStream(tempFile);
 
-            serialized.writeDelimitedTo(fileOutputStream);
+            if (keyRing != null) {
+                byte[] encryptedBytes = Encryption.encryptPayloadWithHmac(serialized.toByteArray(), keyRing.getSymmetricKey());
+                fileOutputStream.write(encryptedBytes);
+            } else {
+                serialized.writeDelimitedTo(fileOutputStream);
+            }
 
             // Attempt to force the bits to hit the disk. In reality the OS or hard disk itself may still decide
             // to not write through to physical media for at least a few seconds, but this is the best we can do.

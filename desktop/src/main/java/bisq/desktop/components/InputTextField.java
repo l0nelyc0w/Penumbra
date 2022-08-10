@@ -18,10 +18,9 @@
 package bisq.desktop.components;
 
 
-import bisq.desktop.util.validation.JFXInputValidator;
-
+import bisq.core.locale.Res;
 import bisq.core.util.validation.InputValidator;
-
+import bisq.desktop.util.validation.JFXInputValidator;
 import com.jfoenix.controls.JFXTextField;
 
 import javafx.scene.control.Skin;
@@ -131,6 +130,10 @@ public class InputTextField extends JFXTextField {
         if (validator != null) {
             this.validationResult.set(validator.validate(getText()));
         }
+    }
+
+    public void setInvalid(String message) {
+        validationResult.set(new InputValidator.ValidationResult(false, message));
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////

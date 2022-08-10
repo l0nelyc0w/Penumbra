@@ -19,9 +19,6 @@ package bisq.desktop.components.paymentmethods;
 
 import bisq.desktop.components.InputTextField;
 import bisq.desktop.util.GUIUtil;
-import bisq.desktop.util.Layout;
-import bisq.desktop.util.validation.EmailValidator;
-
 import bisq.core.account.witness.AccountAgeWitnessService;
 import bisq.core.locale.BankUtil;
 import bisq.core.locale.Country;
@@ -34,6 +31,7 @@ import bisq.core.payment.CountryBasedPaymentAccount;
 import bisq.core.payment.PaymentAccount;
 import bisq.core.payment.payload.CashDepositAccountPayload;
 import bisq.core.payment.payload.PaymentAccountPayload;
+import bisq.core.payment.validation.EmailValidator;
 import bisq.core.util.coin.CoinFormatter;
 import bisq.core.util.validation.InputValidator;
 
@@ -190,11 +188,11 @@ public class CashDepositForm extends GeneralBankForm {
     }
 
     @Override
-    public void addFormForDisplayAccount() {
+    public void addFormForEditAccount() {
         gridRowFrom = gridRow;
         String countryCode = cashDepositAccountPayload.getCountryCode();
 
-        addTopLabelTextField(gridPane, gridRow, Res.get("payment.account.name"), paymentAccount.getAccountName(), Layout.FIRST_ROW_AND_GROUP_DISTANCE);
+        addAccountNameTextFieldWithAutoFillToggleButton();
         addCompactTopLabelTextField(gridPane, ++gridRow, Res.get("shared.paymentMethod"),
                 Res.get(paymentAccount.getPaymentMethod().getId()));
         addCompactTopLabelTextField(gridPane, ++gridRow, Res.get("payment.country"),
@@ -446,17 +444,12 @@ public class CashDepositForm extends GeneralBankForm {
     }
 
     @Override
-    protected void autoFillNameTextField() {
-        autoFillAccountTextFields(cashDepositAccountPayload);
-    }
-
-    @Override
     public void updateAllInputsValid() {
         boolean result = isAccountNameValid()
                 && paymentAccount.getSingleTradeCurrency() != null
                 && getCountryBasedPaymentAccount().getCountry() != null
-                && holderNameInputTextField.getValidator().validate(cashDepositAccountPayload.getHolderName()).isValid
-                && emailInputTextField.getValidator().validate(cashDepositAccountPayload.getHolderEmail()).isValid;
+                && inputValidator.validate(cashDepositAccountPayload.getHolderName()).isValid
+                && emailValidator.validate(cashDepositAccountPayload.getHolderEmail()).isValid;
 
         String countryCode = cashDepositAccountPayload.getCountryCode();
         result = getValidationResult(result, countryCode,

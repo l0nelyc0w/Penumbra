@@ -20,8 +20,9 @@ package bisq.core.trade.protocol;
 import bisq.core.offer.Offer;
 import bisq.core.trade.Trade;
 import bisq.core.trade.TradeManager;
+import bisq.core.trade.TradeUtils;
 import bisq.core.trade.handlers.TradeResultHandler;
-import bisq.core.trade.messages.CounterCurrencyTransferStartedMessage;
+import bisq.core.trade.messages.PaymentSentMessage;
 import bisq.core.trade.messages.DepositTxAndDelayedPayoutTxMessage;
 import bisq.core.trade.messages.InitMultisigRequest;
 import bisq.core.trade.messages.SignContractRequest;
@@ -49,6 +50,7 @@ import bisq.common.taskrunner.Task;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import lombok.extern.slf4j.Slf4j;
@@ -58,8 +60,11 @@ import javax.annotation.Nullable;
 @Slf4j
 public abstract class TradeProtocol implements DecryptedDirectMessageListener, DecryptedMailboxListener {
 
+    public static final int TRADE_TIMEOUT = 60;
+
     protected final ProcessModel processModel;
     protected final Trade trade;
+    protected CountDownLatch tradeLatch; // to synchronize on trade
     private Timer timeoutTimer;
     protected TradeResultHandler tradeResultHandler;
     protected ErrorMessageHandler errorMessageHandler;
@@ -265,6 +270,14 @@ public abstract class TradeProtocol implements DecryptedDirectMessageListener, D
     protected FluentProtocol.Condition anyPhase(Trade.Phase... expectedPhases) {
         return new FluentProtocol.Condition(trade).anyPhase(expectedPhases);
     }
+    
+    protected FluentProtocol.Condition state(Trade.State expectedState) {
+        return new FluentProtocol.Condition(trade).state(expectedState);
+    }
+
+    protected FluentProtocol.Condition anyState(Trade.State... expectedStates) {
+        return new FluentProtocol.Condition(trade).anyState(expectedStates);
+    }
 
     @SafeVarargs
     public final FluentProtocol.Setup tasks(Class<? extends Task<Trade>>... tasks) {
@@ -278,10 +291,10 @@ public abstract class TradeProtocol implements DecryptedDirectMessageListener, D
 
     // TODO (woodser): support notifications of ack messages
     private void onAckMessage(AckMessage ackMessage, NodeAddress peer) {
-        // We handle the ack for CounterCurrencyTransferStartedMessage and DepositTxAndDelayedPayoutTxMessage
+        // We handle the ack for PaymentSentMessage and DepositTxAndDelayedPayoutTxMessage
         // as we support automatic re-send of the msg in case it was not ACKed after a certain time
         // TODO (woodser): add AckMessage for InitTradeRequest and support automatic re-send ?
-        if (ackMessage.getSourceMsgClassName().equals(CounterCurrencyTransferStartedMessage.class.getSimpleName())) {
+        if (ackMessage.getSourceMsgClassName().equals(PaymentSentMessage.class.getSimpleName())) {
             processModel.setPaymentStartedAckMessage(ackMessage);
         } else if (ackMessage.getSourceMsgClassName().equals(DepositTxAndDelayedPayoutTxMessage.class.getSimpleName())) {
             processModel.setDepositTxSentAckMessage(ackMessage);
@@ -291,8 +304,11 @@ public abstract class TradeProtocol implements DecryptedDirectMessageListener, D
             log.info("Received AckMessage for {} from {} with tradeId {} and uid {}",
                     ackMessage.getSourceMsgClassName(), peer, trade.getId(), ackMessage.getSourceUid());
         } else {
-            log.warn("Received AckMessage with error state for {} from {} with tradeId {} and errorMessage={}",
-                    ackMessage.getSourceMsgClassName(), peer, trade.getId(), ackMessage.getErrorMessage());
+            String err = "Received AckMessage with error state for " + ackMessage.getSourceMsgClassName() +
+                    " from "+ peer + " with tradeId " + trade.getId() + " and errorMessage=" + ackMessage.getErrorMessage();
+            log.warn(err);
+            stopTimeout();
+            if (errorMessageHandler != null) errorMessageHandler.handleErrorMessage(err);
         }
     }
 
@@ -345,6 +361,32 @@ public abstract class TradeProtocol implements DecryptedDirectMessageListener, D
         );
     }
 
+    // TODO: trade protocols block if these are synchronized
+
+    protected void handleError(String errorMessage) {
+        log.error(errorMessage);
+        unlatchTrade();
+        trade.setErrorMessage(errorMessage);
+        if (errorMessageHandler != null) errorMessageHandler.handleErrorMessage(errorMessage);
+        processModel.getTradeManager().requestPersistence();
+        cleanup();
+    }
+
+    protected void latchTrade() {
+        if (tradeLatch != null) throw new RuntimeException("Trade latch is not null. This should never happen.");
+        tradeLatch = new CountDownLatch(1);
+    }
+
+    protected void unlatchTrade() {
+        if (tradeLatch != null) tradeLatch.countDown();
+        tradeLatch = null;
+    }
+
+    protected void awaitTradeLatch() {
+        if (tradeLatch == null) return;
+        TradeUtils.awaitLatch(tradeLatch);
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////
     // Timeout
     ///////////////////////////////////////////////////////////////////////////////////////////
@@ -352,11 +394,7 @@ public abstract class TradeProtocol implements DecryptedDirectMessageListener, D
     protected void startTimeout(long timeoutSec) {
         stopTimeout();
         timeoutTimer = UserThread.runAfter(() -> {
-            log.error("Timeout reached. TradeID={}, state={}, timeoutSec={}", trade.getId(), trade.stateProperty().get(), timeoutSec);
-            trade.setErrorMessage("Timeout reached. Protocol did not complete in " + timeoutSec + " sec.");
-            if (errorMessageHandler != null) errorMessageHandler.handleErrorMessage("Timeout reached. Protocol did not complete in " + timeoutSec + " sec. TradeID=" + trade.getId() + ", state=" + trade.stateProperty().get());
-            processModel.getTradeManager().requestPersistence();
-            cleanup();
+            handleError("Timeout reached. Protocol did not complete in " + timeoutSec + " sec. TradeID=" + trade.getId() + ", state=" + trade.stateProperty().get());
         }, timeoutSec);
     }
 

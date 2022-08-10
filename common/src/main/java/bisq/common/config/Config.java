@@ -99,6 +99,9 @@ public class Config {
     public static final String SEND_MSG_THROTTLE_SLEEP = "sendMsgThrottleSleep";
     public static final String IGNORE_LOCAL_BTC_NODE = "ignoreLocalBtcNode";
     public static final String BITCOIN_REGTEST_HOST = "bitcoinRegtestHost";
+    public static final String XMR_NODE = "xmrNode";
+    public static final String XMR_NODE_USERNAME = "xmrNodeUsername";
+    public static final String XMR_NODE_PASSWORD = "xmrNodePassword";
     public static final String BTC_NODES = "btcNodes";
     public static final String DAEMON_ADDRESS = "daemonAddress";
     public static final String DAEMON_USERNAME = "daemonUsername";
@@ -113,16 +116,19 @@ public class Config {
     public static final String API_PORT = "apiPort";
     public static final String PREVENT_PERIODIC_SHUTDOWN_AT_SEED_NODE = "preventPeriodicShutdownAtSeedNode";
     public static final String REPUBLISH_MAILBOX_ENTRIES = "republishMailboxEntries";
+    public static final String LEGACY_FEE_DATAMAP = "dataMap";
     public static final String BTC_TX_FEE = "btcTxFee";
     public static final String BTC_MIN_TX_FEE = "btcMinTxFee";
     public static final String BTC_FEES_TS = "bitcoinFeesTs";
+    public static final String BTC_FEE_INFO = "bitcoinFeeInfo";
     public static final String BYPASS_MEMPOOL_VALIDATION = "bypassMempoolValidation";
+    public static final String PASSWORD_REQUIRED = "passwordRequired";
 
     // Default values for certain options
     public static final int UNSPECIFIED_PORT = -1;
     public static final String DEFAULT_REGTEST_HOST = "none";
     public static final int DEFAULT_NUM_CONNECTIONS_FOR_BTC = 9; // down from BitcoinJ default of 12
-    static final String DEFAULT_CONFIG_FILE_NAME = "bisq.properties";
+    static final String DEFAULT_CONFIG_FILE_NAME = "haveno.properties";
 
     // Static fields that provide access to Config properties in locations where injecting
     // a Config instance is not feasible. See Javadoc for corresponding static accessors.
@@ -179,6 +185,9 @@ public class Config {
     public final int msgThrottlePer10Sec;
     public final int sendMsgThrottleTrigger;
     public final int sendMsgThrottleSleep;
+    public final String xmrNode;
+    public final String xmrNodeUsername;
+    public final String xmrNodePassword;
     public final String btcNodes;
     public final boolean useTorForBtc;
     public final boolean useTorForBtcOptionSetExplicitly;
@@ -328,14 +337,14 @@ public class Config {
                         .withValuesConvertedBy(new EnumValueConverter(BaseCurrencyNetwork.class))
                         .defaultsTo(BaseCurrencyNetwork.XMR_MAINNET);
 
-        ArgumentAcceptingOptionSpec<Boolean> ignoreLocalBtcNodeOpt =
+        ArgumentAcceptingOptionSpec<Boolean> ignoreLocalBtcNodeOpt = // TODO: update this to ignore local XMR node
                 parser.accepts(IGNORE_LOCAL_BTC_NODE,
-                        "If set to true a Bitcoin Core node running locally will be ignored")
+                        "If set to true a Monero node running locally will be ignored")
                         .withRequiredArg()
                         .ofType(Boolean.class)
                         .defaultsTo(false);
 
-        ArgumentAcceptingOptionSpec<String> bitcoinRegtestHostOpt =
+        ArgumentAcceptingOptionSpec<String> bitcoinRegtestHostOpt = // TODO: remove?
                 parser.accepts(BITCOIN_REGTEST_HOST, "Bitcoin Core node when using XMR_STAGENET network")
                         .withRequiredArg()
                         .ofType(String.class)
@@ -502,6 +511,21 @@ public class Config {
                         .ofType(int.class)
                         .defaultsTo(50); // Pause in ms to sleep if we get too many messages to send
 
+        ArgumentAcceptingOptionSpec<String> xmrNodeOpt =
+                parser.accepts(XMR_NODE, "URI of custom Monero node to use")
+                        .withRequiredArg()
+                        .defaultsTo("");
+
+        ArgumentAcceptingOptionSpec<String> xmrNodeUsernameOpt =
+                parser.accepts(XMR_NODE_USERNAME, "Username of custom Monero node to use")
+                        .withRequiredArg()
+                        .defaultsTo("");
+
+        ArgumentAcceptingOptionSpec<String> xmrNodePasswordOpt =
+                parser.accepts(XMR_NODE_PASSWORD, "Password of custom Monero node to use")
+                        .withRequiredArg()
+                        .defaultsTo("");
+
         ArgumentAcceptingOptionSpec<String> btcNodesOpt =
                 parser.accepts(BTC_NODES, "Custom nodes used for BitcoinJ as comma separated IP addresses.")
                         .withRequiredArg()
@@ -604,6 +628,13 @@ public class Config {
                         .ofType(boolean.class)
                         .defaultsTo(false);
 
+        ArgumentAcceptingOptionSpec<Boolean> passwordRequiredOpt =
+                parser.accepts(PASSWORD_REQUIRED,
+                        "Requires a password for creating a Haveno account")
+                        .withRequiredArg()
+                        .ofType(boolean.class)
+                        .defaultsTo(false);
+
         try {
             CompositeOptionSet options = new CompositeOptionSet();
 
@@ -613,7 +644,7 @@ public class Config {
 
             // Option parsing is strict at the command line, but we relax it now for any
             // subsequent config file processing. This is for compatibility with pre-1.2.6
-            // versions that allowed unrecognized options in the bisq.properties config
+            // versions that allowed unrecognized options in the haveno.properties config
             // file and because it follows suit with Bitcoin Core's config file behavior.
             parser.allowsUnrecognizedOptions();
 
@@ -696,6 +727,9 @@ public class Config {
             this.msgThrottlePer10Sec = options.valueOf(msgThrottlePer10SecOpt);
             this.sendMsgThrottleTrigger = options.valueOf(sendMsgThrottleTriggerOpt);
             this.sendMsgThrottleSleep = options.valueOf(sendMsgThrottleSleepOpt);
+            this.xmrNode = options.valueOf(xmrNodeOpt);
+            this.xmrNodeUsername = options.valueOf(xmrNodeUsernameOpt);
+            this.xmrNodePassword = options.valueOf(xmrNodePasswordOpt);
             this.btcNodes = options.valueOf(btcNodesOpt);
             this.useTorForBtc = options.valueOf(useTorForBtcOpt);
             this.useTorForBtcOptionSetExplicitly = options.has(useTorForBtcOpt);
@@ -713,6 +747,7 @@ public class Config {
             this.preventPeriodicShutdownAtSeedNode = options.valueOf(preventPeriodicShutdownAtSeedNodeOpt);
             this.republishMailboxEntries = options.valueOf(republishMailboxEntriesOpt);
             this.bypassMempoolValidation = options.valueOf(bypassMempoolValidationOpt);
+            this.passwordRequired = options.valueOf(passwordRequiredOpt);
         } catch (OptionException ex) {
             throw new ConfigException("problem parsing option '%s': %s",
                     ex.options().get(0),

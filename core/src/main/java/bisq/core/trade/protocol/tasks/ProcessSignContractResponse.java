@@ -27,7 +27,6 @@ import bisq.core.trade.messages.DepositRequest;
 import bisq.core.trade.messages.SignContractResponse;
 import bisq.core.trade.protocol.TradingPeer;
 import bisq.network.p2p.SendDirectMessageListener;
-import common.utils.GenUtils;
 import java.util.Date;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -95,6 +94,8 @@ public class ProcessSignContractResponse extends TradeTask {
                   @Override
                   public void onArrived() {
                       log.info("{} arrived: trading peer={}; offerId={}; uid={}", request.getClass().getSimpleName(), trade.getArbitratorNodeAddress(), trade.getId());
+                      processModel.getTradeManager().requestPersistence();
+                      complete();
                   }
                   @Override
                   public void onFault(String errorMessage) {
@@ -103,6 +104,8 @@ public class ProcessSignContractResponse extends TradeTask {
                       failed();
                   }
               });
+          } else {
+              complete(); // does not yet have needed signatures
           }
 
           // persist and complete

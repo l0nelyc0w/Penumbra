@@ -24,15 +24,15 @@ import bisq.desktop.components.TitledGroupBg;
 import bisq.core.offer.availability.tasks.ProcessOfferAvailabilityResponse;
 import bisq.core.offer.availability.tasks.SendOfferAvailabilityRequest;
 import bisq.core.offer.placeoffer.tasks.AddToOfferBook;
-import bisq.core.offer.placeoffer.tasks.MakerReservesTradeFunds;
+import bisq.core.offer.placeoffer.tasks.MakerReservesOfferFunds;
 import bisq.core.offer.placeoffer.tasks.ValidateOffer;
 import bisq.core.trade.protocol.tasks.ApplyFilter;
 import bisq.core.trade.protocol.tasks.VerifyPeersAccountAgeWitness;
-import bisq.core.trade.protocol.tasks.buyer.BuyerCreateAndSignPayoutTx;
+import bisq.core.trade.protocol.tasks.buyer.BuyerPreparesPaymentSentMessage;
 import bisq.core.trade.protocol.tasks.buyer.BuyerProcessDelayedPayoutTxSignatureRequest;
 import bisq.core.trade.protocol.tasks.buyer.BuyerProcessDepositTxAndDelayedPayoutTxMessage;
-import bisq.core.trade.protocol.tasks.buyer.BuyerProcessPayoutTxPublishedMessage;
-import bisq.core.trade.protocol.tasks.buyer.BuyerSendCounterCurrencyTransferStartedMessage;
+import bisq.core.trade.protocol.tasks.buyer.BuyerProcessesPaymentReceivedMessage;
+import bisq.core.trade.protocol.tasks.buyer.BuyerSendsPaymentSentMessage;
 import bisq.core.trade.protocol.tasks.buyer.BuyerSendsDelayedPayoutTxSignatureResponse;
 import bisq.core.trade.protocol.tasks.buyer.BuyerSetupPayoutTxListener;
 import bisq.core.trade.protocol.tasks.buyer.BuyerSignsDelayedPayoutTx;
@@ -48,20 +48,19 @@ import bisq.core.trade.protocol.tasks.maker.MakerSetsLockTime;
 import bisq.core.trade.protocol.tasks.maker.MakerVerifyTakerFeePayment;
 import bisq.core.trade.protocol.tasks.seller.SellerCreatesDelayedPayoutTx;
 import bisq.core.trade.protocol.tasks.seller.SellerFinalizesDelayedPayoutTx;
-import bisq.core.trade.protocol.tasks.seller.SellerProcessCounterCurrencyTransferStartedMessage;
+import bisq.core.trade.protocol.tasks.seller.SellerProcessesPaymentSentMessage;
 import bisq.core.trade.protocol.tasks.seller.SellerProcessDelayedPayoutTxSignatureResponse;
 import bisq.core.trade.protocol.tasks.seller.SellerPublishesDepositTx;
 import bisq.core.trade.protocol.tasks.seller.SellerPublishesTradeStatistics;
 import bisq.core.trade.protocol.tasks.seller.SellerSendDelayedPayoutTxSignatureRequest;
-import bisq.core.trade.protocol.tasks.seller.SellerSendPayoutTxPublishedMessage;
-import bisq.core.trade.protocol.tasks.seller.SellerSignAndPublishPayoutTx;
+import bisq.core.trade.protocol.tasks.seller.SellerSendsPaymentReceivedMessage;
+import bisq.core.trade.protocol.tasks.seller.SellerPreparesPaymentReceivedMessage;
 import bisq.core.trade.protocol.tasks.seller.SellerSignsDelayedPayoutTx;
 import bisq.core.trade.protocol.tasks.seller_as_maker.SellerAsMakerCreatesUnsignedDepositTx;
 import bisq.core.trade.protocol.tasks.seller_as_maker.SellerAsMakerFinalizesDepositTx;
 import bisq.core.trade.protocol.tasks.seller_as_maker.SellerAsMakerSendsInputsForDepositTxResponse;
 import bisq.core.trade.protocol.tasks.seller_as_taker.SellerAsTakerCreatesDepositTxInputs;
 import bisq.core.trade.protocol.tasks.seller_as_taker.SellerAsTakerSignsDepositTx;
-import bisq.core.trade.protocol.tasks.taker.TakerCreateFeeTx;
 import bisq.core.trade.protocol.tasks.taker.TakerProcessesInputsForDepositTxResponse;
 import bisq.core.trade.protocol.tasks.taker.TakerPublishFeeTx;
 import bisq.core.trade.protocol.tasks.taker.TakerVerifyMakerFeePayment;
@@ -110,7 +109,7 @@ public class DebugView extends InitializableView<GridPane, Void> {
         addGroup("PlaceOfferProtocol",
                 FXCollections.observableArrayList(Arrays.asList(
                         ValidateOffer.class,
-                        MakerReservesTradeFunds.class,
+                        MakerReservesOfferFunds.class,
                         AddToOfferBook.class)
                 ));
 
@@ -119,7 +118,6 @@ public class DebugView extends InitializableView<GridPane, Void> {
                 FXCollections.observableArrayList(Arrays.asList(
                         ApplyFilter.class,
                         TakerVerifyMakerFeePayment.class,
-                        TakerCreateFeeTx.class, // TODO (woodser): rename to TakerCreateFeeTx
                         SellerAsTakerCreatesDepositTxInputs.class,
 
                         TakerProcessesInputsForDepositTxResponse.class,
@@ -137,15 +135,15 @@ public class DebugView extends InitializableView<GridPane, Void> {
                         SellerPublishesDepositTx.class,
                         SellerPublishesTradeStatistics.class,
 
-                        SellerProcessCounterCurrencyTransferStartedMessage.class,
+                        SellerProcessesPaymentSentMessage.class,
                         ApplyFilter.class,
                         TakerVerifyMakerFeePayment.class,
 
                         ApplyFilter.class,
                         TakerVerifyMakerFeePayment.class,
-                        SellerSignAndPublishPayoutTx.class,
+                        SellerPreparesPaymentReceivedMessage.class,
                         //SellerBroadcastPayoutTx.class, // TODO (woodser): removed from main pipeline; debug view?
-                        SellerSendPayoutTxPublishedMessage.class
+                        SellerSendsPaymentReceivedMessage.class
 
                         )
                 ));
@@ -169,11 +167,11 @@ public class DebugView extends InitializableView<GridPane, Void> {
 
                         ApplyFilter.class,
                         MakerVerifyTakerFeePayment.class,
-                        BuyerCreateAndSignPayoutTx.class,
+                        BuyerPreparesPaymentSentMessage.class,
                         BuyerSetupPayoutTxListener.class,
-                        BuyerSendCounterCurrencyTransferStartedMessage.class,
+                        BuyerSendsPaymentSentMessage.class,
 
-                        BuyerProcessPayoutTxPublishedMessage.class
+                        BuyerProcessesPaymentReceivedMessage.class
                         )
                 ));
 
@@ -182,7 +180,6 @@ public class DebugView extends InitializableView<GridPane, Void> {
                 FXCollections.observableArrayList(Arrays.asList(
                         ApplyFilter.class,
                         TakerVerifyMakerFeePayment.class,
-                        TakerCreateFeeTx.class,
                         BuyerAsTakerCreatesDepositTxInputs.class,
 
                         TakerProcessesInputsForDepositTxResponse.class,
@@ -202,11 +199,11 @@ public class DebugView extends InitializableView<GridPane, Void> {
 
                         ApplyFilter.class,
                         TakerVerifyMakerFeePayment.class,
-                        BuyerCreateAndSignPayoutTx.class,
+                        BuyerPreparesPaymentSentMessage.class,
                         BuyerSetupPayoutTxListener.class,
-                        BuyerSendCounterCurrencyTransferStartedMessage.class,
+                        BuyerSendsPaymentSentMessage.class,
 
-                        BuyerProcessPayoutTxPublishedMessage.class)
+                        BuyerProcessesPaymentReceivedMessage.class)
                 ));
         addGroup("SellerAsMakerProtocol",
                 FXCollections.observableArrayList(Arrays.asList(
@@ -230,15 +227,15 @@ public class DebugView extends InitializableView<GridPane, Void> {
                         SellerPublishesDepositTx.class,
                         SellerPublishesTradeStatistics.class,
 
-                        SellerProcessCounterCurrencyTransferStartedMessage.class,
+                        SellerProcessesPaymentSentMessage.class,
                         ApplyFilter.class,
                         MakerVerifyTakerFeePayment.class,
 
                         ApplyFilter.class,
                         MakerVerifyTakerFeePayment.class,
-                        SellerSignAndPublishPayoutTx.class,
+                        SellerPreparesPaymentReceivedMessage.class,
                         //SellerBroadcastPayoutTx.class, // TODO (woodser): removed from main pipeline; debug view?
-                        SellerSendPayoutTxPublishedMessage.class
+                        SellerSendsPaymentReceivedMessage.class
                         )
                 ));
     }

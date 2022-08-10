@@ -28,6 +28,7 @@ import bisq.desktop.components.AutoTooltipLabel;
 import bisq.desktop.components.AutoTooltipToggleButton;
 import bisq.desktop.components.BusyAnimation;
 import bisq.desktop.main.account.AccountView;
+import bisq.desktop.main.funds.FundsView;
 import bisq.desktop.main.market.MarketView;
 import bisq.desktop.main.market.offerbook.OfferBookChartView;
 import bisq.desktop.main.offer.BuyOfferView;
@@ -107,7 +108,7 @@ import static javafx.scene.layout.AnchorPane.setTopAnchor;
 
 @FxmlView
 @Slf4j
-public class MainView extends InitializableView<StackPane, MainViewModel> {
+public class MainView extends InitializableView<StackPane, MainViewModel>  {
     // If after 30 sec we have not got connected we show "open network settings" button
     private final static int SHOW_TOR_SETTINGS_DELAY_SEC = 90;
     @Setter
@@ -170,10 +171,10 @@ public class MainView extends InitializableView<StackPane, MainViewModel> {
             MainView.rootContainer.setNodeOrientation(NodeOrientation.RIGHT_TO_LEFT);
 
         ToggleButton marketButton = new NavButton(MarketView.class, Res.get("mainView.menu.market").toUpperCase());
-        ToggleButton buyButton = new NavButton(BuyOfferView.class, Res.get("mainView.menu.buyBtc").toUpperCase());
-        ToggleButton sellButton = new NavButton(SellOfferView.class, Res.get("mainView.menu.sellBtc").toUpperCase());
+        ToggleButton buyButton = new NavButton(BuyOfferView.class, Res.get("mainView.menu.buy").toUpperCase());
+        ToggleButton sellButton = new NavButton(SellOfferView.class, Res.get("mainView.menu.sell").toUpperCase());
         ToggleButton portfolioButton = new NavButton(PortfolioView.class, Res.get("mainView.menu.portfolio").toUpperCase());
-//        ToggleButton fundsButton = new NavButton(FundsView.class, Res.get("mainView.menu.funds").toUpperCase());
+        ToggleButton fundsButton = new NavButton(FundsView.class, Res.get("mainView.menu.funds").toUpperCase());
 
         ToggleButton supportButton = new NavButton(SupportView.class, Res.get("mainView.menu.support"));
         ToggleButton settingsButton = new NavButton(SettingsView.class, Res.get("mainView.menu.settings"));
@@ -182,7 +183,6 @@ public class MainView extends InitializableView<StackPane, MainViewModel> {
         JFXBadge portfolioButtonWithBadge = new JFXBadge(portfolioButton);
         JFXBadge supportButtonWithBadge = new JFXBadge(supportButton);
         JFXBadge settingsButtonWithBadge = new JFXBadge(settingsButton);
-        settingsButtonWithBadge.getStyleClass().add("new");
 
         Locale locale = GlobalSettings.getLocale();
         DecimalFormat currencyFormat = (DecimalFormat) NumberFormat.getNumberInstance(locale);
@@ -200,8 +200,8 @@ public class MainView extends InitializableView<StackPane, MainViewModel> {
                         sellButton.fire();
                     } else if (Utilities.isAltOrCtrlPressed(KeyCode.DIGIT4, keyEvent)) {
                         portfolioButton.fire();
-//                    } else if (Utilities.isAltOrCtrlPressed(KeyCode.DIGIT5, keyEvent)) {
-//                        fundsButton.fire();
+                    } else if (Utilities.isAltOrCtrlPressed(KeyCode.DIGIT5, keyEvent)) {
+                        fundsButton.fire();
                     } else if (Utilities.isAltOrCtrlPressed(KeyCode.DIGIT6, keyEvent)) {
                         supportButton.fire();
                     } else if (Utilities.isAltOrCtrlPressed(KeyCode.DIGIT7, keyEvent)) {
@@ -304,7 +304,7 @@ public class MainView extends InitializableView<StackPane, MainViewModel> {
         });
 
         HBox primaryNav = new HBox(marketButton, getNavigationSeparator(), buyButton, getNavigationSeparator(),
-                sellButton, getNavigationSeparator(), portfolioButtonWithBadge, getNavigationSeparator());
+                sellButton, getNavigationSeparator(), portfolioButtonWithBadge, getNavigationSeparator(), fundsButton);
 
         primaryNav.setAlignment(Pos.CENTER_LEFT);
         primaryNav.getStyleClass().add("nav-primary");
@@ -353,8 +353,9 @@ public class MainView extends InitializableView<StackPane, MainViewModel> {
         baseApplicationContainer.setBottom(createFooter());
 
         setupBadge(portfolioButtonWithBadge, model.getNumPendingTrades(), model.getShowPendingTradesNotification());
-//        setupBadge(supportButtonWithBadge, model.getNumOpenSupportTickets(), model.getShowOpenSupportTicketsNotification());
+        //setupBadge(supportButtonWithBadge, model.getNumOpenSupportTickets(), model.getShowOpenSupportTicketsNotification());
         setupBadge(settingsButtonWithBadge, new SimpleStringProperty(Res.get("shared.new")), model.getShowSettingsUpdatesNotification());
+        settingsButtonWithBadge.getStyleClass().add("new");
 
         navigation.addListener((viewPath, data) -> {
             if (viewPath.size() != 2 || viewPath.indexOf(MainView.class) != 0)
@@ -431,13 +432,14 @@ public class MainView extends InitializableView<StackPane, MainViewModel> {
         return new ListCell<>() {
             @Override
             protected void updateItem(PriceFeedComboBoxItem item, boolean empty) {
-                super.updateItem(item, empty);
-
-                if (!empty && item != null) {
-                    textProperty().bind(item.displayStringProperty);
-                } else {
-                    textProperty().unbind();
-                }
+                UserThread.execute(() -> {
+                    super.updateItem(item, empty);
+                    if (!empty && item != null) {
+                        textProperty().bind(item.displayStringProperty);
+                    } else {
+                        textProperty().unbind();
+                    }
+                });
             }
         };
     }
@@ -736,8 +738,10 @@ public class MainView extends InitializableView<StackPane, MainViewModel> {
         });
 
         model.getUpdatedDataReceived().addListener((observable, oldValue, newValue) -> {
-            p2PNetworkIcon.setOpacity(1);
-            p2pNetworkProgressBar.setProgress(0);
+            UserThread.execute(() -> {
+                p2PNetworkIcon.setOpacity(1);
+                p2pNetworkProgressBar.setProgress(0);
+            });
         });
 
         p2pNetworkProgressBar = new JFXProgressBar(-1);
@@ -761,8 +765,10 @@ public class MainView extends InitializableView<StackPane, MainViewModel> {
         buttonWithBadge.textProperty().bind(badgeNumber);
         buttonWithBadge.setEnabled(badgeEnabled.get());
         badgeEnabled.addListener((observable, oldValue, newValue) -> {
-            buttonWithBadge.setEnabled(newValue);
-            buttonWithBadge.refreshBadge();
+            UserThread.execute(() -> {
+                buttonWithBadge.setEnabled(newValue);
+                buttonWithBadge.refreshBadge();
+            });
         });
 
         buttonWithBadge.setPosition(Pos.TOP_RIGHT);

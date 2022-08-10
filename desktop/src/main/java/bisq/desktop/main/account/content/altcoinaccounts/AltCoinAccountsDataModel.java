@@ -31,6 +31,7 @@ import bisq.core.trade.TradeManager;
 import bisq.core.user.Preferences;
 import bisq.core.user.User;
 
+import bisq.common.crypto.KeyRing;
 import bisq.common.file.CorruptedStorageFileHandler;
 import bisq.common.proto.persistable.PersistenceProtoResolver;
 
@@ -59,6 +60,7 @@ class AltCoinAccountsDataModel extends ActivatableDataModel {
     private final String accountsFileName = "AltcoinPaymentAccounts";
     private final PersistenceProtoResolver persistenceProtoResolver;
     private final CorruptedStorageFileHandler corruptedStorageFileHandler;
+    private final KeyRing keyRing;
 
     @Inject
     public AltCoinAccountsDataModel(User user,
@@ -67,7 +69,8 @@ class AltCoinAccountsDataModel extends ActivatableDataModel {
                                     TradeManager tradeManager,
                                     AccountAgeWitnessService accountAgeWitnessService,
                                     PersistenceProtoResolver persistenceProtoResolver,
-                                    CorruptedStorageFileHandler corruptedStorageFileHandler) {
+                                    CorruptedStorageFileHandler corruptedStorageFileHandler,
+                                    KeyRing keyRing) {
         this.user = user;
         this.preferences = preferences;
         this.openOfferManager = openOfferManager;
@@ -75,6 +78,7 @@ class AltCoinAccountsDataModel extends ActivatableDataModel {
         this.accountAgeWitnessService = accountAgeWitnessService;
         this.persistenceProtoResolver = persistenceProtoResolver;
         this.corruptedStorageFileHandler = corruptedStorageFileHandler;
+        this.keyRing = keyRing;
         setChangeListener = change -> fillAndSortPaymentAccounts();
     }
 
@@ -87,7 +91,7 @@ class AltCoinAccountsDataModel extends ActivatableDataModel {
     private void fillAndSortPaymentAccounts() {
         if (user.getPaymentAccounts() != null) {
             paymentAccounts.setAll(user.getPaymentAccounts().stream()
-                    .filter(paymentAccount -> paymentAccount.getPaymentMethod().isAsset())
+                    .filter(paymentAccount -> paymentAccount.getPaymentMethod().isBlockchain())
                     .collect(Collectors.toList()));
             paymentAccounts.sort(Comparator.comparing(PaymentAccount::getAccountName));
         }
@@ -126,6 +130,11 @@ class AltCoinAccountsDataModel extends ActivatableDataModel {
             accountAgeWitnessService.publishMyAccountAgeWitness(paymentAccount.getPaymentAccountPayload());
     }
 
+    public void onUpdateAccount(PaymentAccount paymentAccount) {
+        paymentAccount.onPersistChanges();
+        user.requestPersistence();
+    }
+
     public boolean onDeleteAccount(PaymentAccount paymentAccount) {
         boolean isPaymentAccountUsed = openOfferManager.getObservableList().stream()
                 .filter(o -> o.getOffer().getMakerPaymentAccountId().equals(paymentAccount.getId()))
@@ -150,12 +159,12 @@ class AltCoinAccountsDataModel extends ActivatableDataModel {
             ArrayList<PaymentAccount> accounts = new ArrayList<>(user.getPaymentAccounts().stream()
                     .filter(paymentAccount -> paymentAccount instanceof AssetAccount)
                     .collect(Collectors.toList()));
-            GUIUtil.exportAccounts(accounts, accountsFileName, preferences, stage, persistenceProtoResolver, corruptedStorageFileHandler);
+            GUIUtil.exportAccounts(accounts, accountsFileName, preferences, stage, persistenceProtoResolver, corruptedStorageFileHandler, keyRing);
         }
     }
 
     public void importAccounts(Stage stage) {
-        GUIUtil.importAccounts(user, accountsFileName, preferences, stage, persistenceProtoResolver, corruptedStorageFileHandler);
+        GUIUtil.importAccounts(user, accountsFileName, preferences, stage, persistenceProtoResolver, corruptedStorageFileHandler, keyRing);
     }
 
     public int getNumPaymentAccounts() {

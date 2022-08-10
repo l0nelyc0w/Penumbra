@@ -17,11 +17,6 @@
 
 package bisq.desktop.main.offer.createoffer;
 
-import bisq.desktop.util.validation.AltcoinValidator;
-import bisq.desktop.util.validation.BtcValidator;
-import bisq.desktop.util.validation.FiatPriceValidator;
-import bisq.desktop.util.validation.SecurityDepositValidator;
-
 import bisq.core.account.witness.AccountAgeWitnessService;
 import bisq.core.btc.model.XmrAddressEntry;
 import bisq.core.btc.wallet.XmrWalletService;
@@ -30,10 +25,13 @@ import bisq.core.locale.CryptoCurrency;
 import bisq.core.locale.GlobalSettings;
 import bisq.core.locale.Res;
 import bisq.core.offer.CreateOfferService;
+import bisq.core.offer.OfferDirection;
 import bisq.core.offer.OfferPayload;
 import bisq.core.offer.OfferUtil;
 import bisq.core.payment.PaymentAccount;
 import bisq.core.payment.payload.PaymentMethod;
+import bisq.core.payment.validation.BtcValidator;
+import bisq.core.payment.validation.SecurityDepositValidator;
 import bisq.core.provider.fee.FeeService;
 import bisq.core.provider.price.MarketPrice;
 import bisq.core.provider.price.PriceFeedService;
@@ -42,6 +40,8 @@ import bisq.core.user.Preferences;
 import bisq.core.user.User;
 import bisq.core.util.coin.CoinFormatter;
 import bisq.core.util.coin.ImmutableCoinFormatter;
+import bisq.core.util.validation.AltcoinValidator;
+import bisq.core.util.validation.FiatPriceValidator;
 import bisq.core.util.validation.InputValidator;
 
 import bisq.common.config.Config;
@@ -128,7 +128,7 @@ public class CreateOfferViewModelTest {
             coinFormatter,
             tradeStats,
             null);
-        dataModel.initWithData(OfferPayload.Direction.BUY, new CryptoCurrency("XMR", "monero"));
+        dataModel.initWithData(OfferDirection.BUY, new CryptoCurrency("XMR", "monero"));
         dataModel.activate();
 
         model = new CreateOfferViewModel(dataModel,

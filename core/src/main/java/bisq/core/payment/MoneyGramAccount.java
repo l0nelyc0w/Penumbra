@@ -17,12 +17,16 @@
 
 package bisq.core.payment;
 
+import bisq.core.api.model.PaymentAccountFormField;
 import bisq.core.locale.Country;
 import bisq.core.locale.CountryUtil;
-import bisq.core.locale.CurrencyUtil;
+import bisq.core.locale.FiatCurrency;
+import bisq.core.locale.TradeCurrency;
 import bisq.core.payment.payload.MoneyGramAccountPayload;
 import bisq.core.payment.payload.PaymentAccountPayload;
 import bisq.core.payment.payload.PaymentMethod;
+
+import java.util.List;
 
 import lombok.EqualsAndHashCode;
 
@@ -36,15 +40,85 @@ public final class MoneyGramAccount extends PaymentAccount {
     @Nullable
     private Country country;
 
+    private static final List<PaymentAccountFormField.FieldId> INPUT_FIELD_IDS = List.of(
+            PaymentAccountFormField.FieldId.ACCOUNT_NAME,
+            PaymentAccountFormField.FieldId.COUNTRY,
+            PaymentAccountFormField.FieldId.STATE,
+            PaymentAccountFormField.FieldId.HOLDER_NAME,
+            PaymentAccountFormField.FieldId.EMAIL,
+            PaymentAccountFormField.FieldId.TRADE_CURRENCIES,
+            PaymentAccountFormField.FieldId.SALT
+    );
+
+    public static final List<TradeCurrency> SUPPORTED_CURRENCIES = List.of(
+            new FiatCurrency("AED"),
+            new FiatCurrency("ARS"),
+            new FiatCurrency("AUD"),
+            new FiatCurrency("BND"),
+            new FiatCurrency("CAD"),
+            new FiatCurrency("CHF"),
+            new FiatCurrency("CZK"),
+            new FiatCurrency("DKK"),
+            new FiatCurrency("EUR"),
+            new FiatCurrency("FJD"),
+            new FiatCurrency("GBP"),
+            new FiatCurrency("HKD"),
+            new FiatCurrency("HUF"),
+            new FiatCurrency("IDR"),
+            new FiatCurrency("ILS"),
+            new FiatCurrency("INR"),
+            new FiatCurrency("JPY"),
+            new FiatCurrency("KRW"),
+            new FiatCurrency("KWD"),
+            new FiatCurrency("LKR"),
+            new FiatCurrency("MAD"),
+            new FiatCurrency("MGA"),
+            new FiatCurrency("MXN"),
+            new FiatCurrency("MYR"),
+            new FiatCurrency("NOK"),
+            new FiatCurrency("NZD"),
+            new FiatCurrency("OMR"),
+            new FiatCurrency("PEN"),
+            new FiatCurrency("PGK"),
+            new FiatCurrency("PHP"),
+            new FiatCurrency("PKR"),
+            new FiatCurrency("PLN"),
+            new FiatCurrency("SAR"),
+            new FiatCurrency("SBD"),
+            new FiatCurrency("SCR"),
+            new FiatCurrency("SEK"),
+            new FiatCurrency("SGD"),
+            new FiatCurrency("THB"),
+            new FiatCurrency("TOP"),
+            new FiatCurrency("TRY"),
+            new FiatCurrency("TWD"),
+            new FiatCurrency("USD"),
+            new FiatCurrency("VND"),
+            new FiatCurrency("VUV"),
+            new FiatCurrency("WST"),
+            new FiatCurrency("XOF"),
+            new FiatCurrency("XPF"),
+            new FiatCurrency("ZAR")
+    );
 
     public MoneyGramAccount() {
         super(PaymentMethod.MONEY_GRAM);
-        tradeCurrencies.addAll(CurrencyUtil.getAllMoneyGramCurrencies());
+        tradeCurrencies.addAll(SUPPORTED_CURRENCIES);
     }
 
     @Override
     protected PaymentAccountPayload createPayload() {
         return new MoneyGramAccountPayload(paymentMethod.getId(), id);
+    }
+
+    @Override
+    public @NotNull List<TradeCurrency> getSupportedCurrencies() {
+        return SUPPORTED_CURRENCIES;
+    }
+
+    @Override
+    public @NotNull List<PaymentAccountFormField.FieldId> getInputFieldIds() {
+        return INPUT_FIELD_IDS;
     }
 
     @Nullable
@@ -81,7 +155,14 @@ public final class MoneyGramAccount extends PaymentAccount {
         return ((MoneyGramAccountPayload) paymentAccountPayload).getState();
     }
 
-    public void setState(String email) {
-        ((MoneyGramAccountPayload) paymentAccountPayload).setState(email);
+    public void setState(String state) {
+        ((MoneyGramAccountPayload) paymentAccountPayload).setState(state);
+    }
+
+    @Override
+    protected PaymentAccountFormField getEmptyFormField(PaymentAccountFormField.FieldId fieldId) {
+        var field = super.getEmptyFormField(fieldId);
+        if (field.getId() == PaymentAccountFormField.FieldId.HOLDER_NAME) field.setLabel("Full name (first, middle, last)");
+        return field;
     }
 }

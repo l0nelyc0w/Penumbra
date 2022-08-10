@@ -19,9 +19,6 @@ package bisq.desktop.components.paymentmethods;
 
 import bisq.desktop.components.InputTextField;
 import bisq.desktop.util.FormBuilder;
-import bisq.desktop.util.Layout;
-import bisq.desktop.util.validation.USPostalMoneyOrderValidator;
-
 import bisq.core.account.witness.AccountAgeWitnessService;
 import bisq.core.locale.Res;
 import bisq.core.locale.TradeCurrency;
@@ -29,6 +26,7 @@ import bisq.core.payment.PaymentAccount;
 import bisq.core.payment.USPostalMoneyOrderAccount;
 import bisq.core.payment.payload.PaymentAccountPayload;
 import bisq.core.payment.payload.USPostalMoneyOrderAccountPayload;
+import bisq.core.payment.validation.USPostalMoneyOrderValidator;
 import bisq.core.util.coin.CoinFormatter;
 import bisq.core.util.validation.InputValidator;
 
@@ -94,14 +92,13 @@ public class USPostalMoneyOrderForm extends PaymentMethodForm {
 
     @Override
     protected void autoFillNameTextField() {
-        setAccountNameWithString(postalAddressTextArea.getText());
+        setAccountNameWithString(usPostalMoneyOrderAccount.getPostalAddress());
     }
 
     @Override
-    public void addFormForDisplayAccount() {
+    public void addFormForEditAccount() {
         gridRowFrom = gridRow;
-        addTopLabelTextField(gridPane, gridRow, Res.get("payment.account.name"),
-                usPostalMoneyOrderAccount.getAccountName(), Layout.FIRST_ROW_AND_GROUP_DISTANCE);
+        addAccountNameTextFieldWithAutoFillToggleButton();
         addCompactTopLabelTextField(gridPane, ++gridRow, Res.get("shared.paymentMethod"),
                 Res.get(usPostalMoneyOrderAccount.getPaymentMethod().getId()));
         addCompactTopLabelTextField(gridPane, ++gridRow, Res.get("payment.account.owner"),
@@ -120,7 +117,7 @@ public class USPostalMoneyOrderForm extends PaymentMethodForm {
     public void updateAllInputsValid() {
         allInputsValid.set(isAccountNameValid()
                 && usPostalMoneyOrderValidator.validate(usPostalMoneyOrderAccount.getPostalAddress()).isValid
-                && !postalAddressTextArea.getText().isEmpty()
+                && !usPostalMoneyOrderAccount.getPostalAddress().isEmpty()
                 && inputValidator.validate(usPostalMoneyOrderAccount.getHolderName()).isValid
                 && usPostalMoneyOrderAccount.getTradeCurrencies().size() > 0);
     }

@@ -29,11 +29,12 @@ import bisq.desktop.main.support.dispute.client.mediation.MediationClientView;
 import bisq.desktop.util.GUIUtil;
 
 import bisq.core.account.witness.AccountAgeWitnessService;
-import bisq.core.btc.setup.WalletsSetup;
+import bisq.core.api.CoreDisputesService;
+import bisq.core.api.CoreMoneroConnectionsService;
 import bisq.core.btc.wallet.XmrWalletService;
 import bisq.core.locale.Res;
 import bisq.core.offer.Offer;
-import bisq.core.offer.OfferPayload;
+import bisq.core.offer.OfferDirection;
 import bisq.core.offer.OfferUtil;
 import bisq.core.payment.payload.PaymentAccountPayload;
 import bisq.core.support.SupportType;
@@ -51,10 +52,12 @@ import bisq.core.trade.TradeManager;
 import bisq.core.trade.protocol.BuyerProtocol;
 import bisq.core.trade.protocol.SellerProtocol;
 import bisq.core.user.Preferences;
-
+import bisq.core.util.FormattingUtils;
+import bisq.core.util.coin.CoinFormatter;
 import bisq.network.p2p.P2PService;
-
+import bisq.common.UserThread;
 import bisq.common.crypto.PubKeyRing;
+import bisq.common.crypto.PubKeyRingProvider;
 import bisq.common.handlers.ErrorMessageHandler;
 import bisq.common.handlers.FaultHandler;
 import bisq.common.handlers.ResultHandler;
@@ -83,12 +86,12 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 
 import javax.annotation.Nullable;
+import javax.inject.Named;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-
-
+import monero.daemon.model.MoneroTx;
 import monero.wallet.MoneroWallet;
 import monero.wallet.model.MoneroTxWallet;
 
@@ -99,13 +102,14 @@ public class PendingTradesDataModel extends ActivatableDataModel {
     public final ArbitrationManager arbitrationManager;
     public final MediationManager mediationManager;
     private final P2PService p2PService;
-    private final WalletsSetup walletsSetup;
+    private final CoreMoneroConnectionsService connectionService;
     @Getter
     private final AccountAgeWitnessService accountAgeWitnessService;
     public final Navigation navigation;
     public final WalletPasswordWindow walletPasswordWindow;
     private final NotificationCenter notificationCenter;
     private final OfferUtil offerUtil;
+    private final CoinFormatter btcFormatter;
 
     final ObservableList<PendingTradesListItem> list = FXCollections.observableArrayList();
     private final ListChangeListener<Trade> tradesListChangeListener;
@@ -122,7 +126,8 @@ public class PendingTradesDataModel extends ActivatableDataModel {
     private ChangeListener<Trade.State> tradeStateChangeListener;
     private Trade selectedTrade;
     @Getter
-    private final PubKeyRing pubKeyRing;
+    private final PubKeyRingProvider pubKeyRingProvider;
+    private final CoreDisputesService disputesService;
 
     ///////////////////////////////////////////////////////////////////////////////////////////
     // Constructor, initialization
@@ -131,32 +136,36 @@ public class PendingTradesDataModel extends ActivatableDataModel {
     @Inject
     public PendingTradesDataModel(TradeManager tradeManager,
                                   XmrWalletService xmrWalletService,
-                                  PubKeyRing pubKeyRing,
+                                  PubKeyRingProvider pubKeyRingProvider,
                                   ArbitrationManager arbitrationManager,
                                   MediationManager mediationManager,
                                   TraderChatManager traderChatManager,
                                   Preferences preferences,
                                   P2PService p2PService,
-                                  WalletsSetup walletsSetup,
+                                  CoreMoneroConnectionsService connectionService,
                                   AccountAgeWitnessService accountAgeWitnessService,
                                   Navigation navigation,
                                   WalletPasswordWindow walletPasswordWindow,
                                   NotificationCenter notificationCenter,
-                                  OfferUtil offerUtil) {
+                                  OfferUtil offerUtil,
+                                  CoreDisputesService disputesService,
+                                  @Named(FormattingUtils.BTC_FORMATTER_KEY) CoinFormatter formatter) {
         this.tradeManager = tradeManager;
         this.xmrWalletService = xmrWalletService;
-        this.pubKeyRing = pubKeyRing;
+        this.pubKeyRingProvider = pubKeyRingProvider;
         this.arbitrationManager = arbitrationManager;
         this.mediationManager = mediationManager;
         this.traderChatManager = traderChatManager;
         this.preferences = preferences;
         this.p2PService = p2PService;
-        this.walletsSetup = walletsSetup;
+        this.connectionService = connectionService;
         this.accountAgeWitnessService = accountAgeWitnessService;
         this.navigation = navigation;
         this.walletPasswordWindow = walletPasswordWindow;
         this.notificationCenter = notificationCenter;
         this.offerUtil = offerUtil;
+        this.disputesService = disputesService;
+        this.btcFormatter = formatter;
 
         tradesListChangeListener = change -> onListChanged();
         notificationCenter.setSelectItemByTradeIdConsumer(this::selectItemByTradeId);
@@ -190,7 +199,7 @@ public class PendingTradesDataModel extends ActivatableDataModel {
     public void onPaymentStarted(ResultHandler resultHandler, ErrorMessageHandler errorMessageHandler) {
         Trade trade = getTrade();
         checkNotNull(trade, "trade must not be null");
-        checkArgument(trade instanceof BuyerTrade, "Check failed: trade instanceof BuyerTrade");
+        checkArgument(trade instanceof BuyerTrade, "Check failed: trade instanceof BuyerTrade. Was: " + trade.getClass().getSimpleName());
         ((BuyerProtocol) tradeManager.getTradeProtocol(trade)).onPaymentStarted(resultHandler, errorMessageHandler);
     }
 
@@ -333,7 +342,9 @@ public class PendingTradesDataModel extends ActivatableDataModel {
 
     private void onListChanged() {
         list.clear();
-        list.addAll(tradeManager.getObservableList().stream().map(PendingTradesListItem::new).collect(Collectors.toList()));
+        list.addAll(tradeManager.getObservableList().stream()
+                .map(trade -> new PendingTradesListItem(trade, btcFormatter))
+                .collect(Collectors.toList()));
 
         // we sort by date, earliest first
         list.sort((o1, o2) -> o2.getTrade().getDate().compareTo(o1.getTrade().getDate()));
@@ -357,54 +368,56 @@ public class PendingTradesDataModel extends ActivatableDataModel {
     }
 
     private void doSelectItem(@Nullable PendingTradesListItem item) {
-        if (selectedTrade != null)
-            selectedTrade.stateProperty().removeListener(tradeStateChangeListener);
+        UserThread.execute(() -> {
+            if (selectedTrade != null)
+                selectedTrade.stateProperty().removeListener(tradeStateChangeListener);
 
-        if (item != null) {
-            selectedTrade = item.getTrade();
-            if (selectedTrade == null) {
-                log.error("selectedTrade is null");
-                return;
-            }
-
-            MoneroTxWallet makerDepositTx = selectedTrade.getMakerDepositTx();
-            MoneroTxWallet takerDepositTx = selectedTrade.getTakerDepositTx();
-            String tradeId = selectedTrade.getId();
-            tradeStateChangeListener = (observable, oldValue, newValue) -> {
-                if (makerDepositTx != null && takerDepositTx != null) { // TODO (woodser): this treats separate deposit ids as one unit, being both available or unavailable
-                    makerTxId.set(makerDepositTx.getHash());
-                    takerTxId.set(takerDepositTx.getHash());
-                    notificationCenter.setSelectedTradeId(tradeId);
-                    selectedTrade.stateProperty().removeListener(tradeStateChangeListener);
-                } else {
-                  makerTxId.set("");
-                  takerTxId.set("");
+            if (item != null) {
+                selectedTrade = item.getTrade();
+                if (selectedTrade == null) {
+                    log.error("selectedTrade is null");
+                    return;
                 }
-            };
-            selectedTrade.stateProperty().addListener(tradeStateChangeListener);
 
-            Offer offer = selectedTrade.getOffer();
-            if (offer == null) {
-                log.error("offer is null");
-                return;
-            }
+                MoneroTx makerDepositTx = selectedTrade.getMakerDepositTx();
+                MoneroTx takerDepositTx = selectedTrade.getTakerDepositTx();
+                String tradeId = selectedTrade.getId();
+                tradeStateChangeListener = (observable, oldValue, newValue) -> {
+                    if (makerDepositTx != null && takerDepositTx != null) { // TODO (woodser): this treats separate deposit ids as one unit, being both available or unavailable
+                        makerTxId.set(makerDepositTx.getHash());
+                        takerTxId.set(takerDepositTx.getHash());
+                        notificationCenter.setSelectedTradeId(tradeId);
+                        selectedTrade.stateProperty().removeListener(tradeStateChangeListener);
+                    } else {
+                      makerTxId.set("");
+                      takerTxId.set("");
+                    }
+                };
+                selectedTrade.stateProperty().addListener(tradeStateChangeListener);
 
-            isMaker = tradeManager.isMyOffer(offer);
-            if (makerDepositTx != null && takerDepositTx != null) {
-              makerTxId.set(makerDepositTx.getHash());
-              takerTxId.set(takerDepositTx.getHash());
+                Offer offer = selectedTrade.getOffer();
+                if (offer == null) {
+                    log.error("offer is null");
+                    return;
+                }
+
+                isMaker = tradeManager.isMyOffer(offer);
+                if (makerDepositTx != null && takerDepositTx != null) {
+                  makerTxId.set(makerDepositTx.getHash());
+                  takerTxId.set(takerDepositTx.getHash());
+                } else {
+                    makerTxId.set("");
+                    takerTxId.set("");
+                }
+                notificationCenter.setSelectedTradeId(tradeId);
             } else {
+                selectedTrade = null;
                 makerTxId.set("");
                 takerTxId.set("");
+                notificationCenter.setSelectedTradeId(null);
             }
-            notificationCenter.setSelectedTradeId(tradeId);
-        } else {
-            selectedTrade = null;
-            makerTxId.set("");
-            takerTxId.set("");
-            notificationCenter.setSelectedTradeId(null);
-        }
-        selectedItemProperty.set(item);
+            selectedItemProperty.set(item);
+        });
     }
 
     private void tryOpenDispute(boolean isSupportTicket) {
@@ -455,8 +468,9 @@ public class PendingTradesDataModel extends ActivatableDataModel {
       byte[] payoutTxSerialized = null;
       String payoutTxHashAsString = null;
       MoneroTxWallet payoutTx = trade.getPayoutTx();
-      MoneroWallet  multisigWallet = xmrWalletService.getMultisigWallet(trade.getId());
-      String updatedMultisigHex = multisigWallet.getMultisigHex();
+      MoneroWallet multisigWallet = xmrWalletService.getMultisigWallet(trade.getId());
+      String updatedMultisigHex = multisigWallet.exportMultisigHex();
+      xmrWalletService.closeMultisigWallet(trade.getId()); // close multisig wallet
       if (payoutTx != null) {
 //          payoutTxSerialized = payoutTx.bitcoinSerialize(); // TODO (woodser): no need to pass serialized txs for xmr
 //          payoutTxHashAsString = payoutTx.getHashAsString();
@@ -487,7 +501,7 @@ public class PendingTradesDataModel extends ActivatableDataModel {
 //                  trade.getId(),
 //                  pubKeyRing.hashCode(), // traderId
 //                  true,
-//                  (offer.getDirection() == OfferPayload.Direction.BUY) == isMaker,
+//                  (offer.getDirection() == OfferDirection.BUY) == isMaker,
 //                  isMaker,
 //                  pubKeyRing,
 //                  trade.getDate().getTime(),
@@ -515,11 +529,11 @@ public class PendingTradesDataModel extends ActivatableDataModel {
             byte[] depositTxSerialized = null;  // depositTx.bitcoinSerialize();  // TODO (woodser): no serialized txs in xmr
             Dispute dispute = new Dispute(new Date().getTime(),
                     trade.getId(),
-                    pubKeyRing.hashCode(), // traderId
+                    pubKeyRingProvider.get().hashCode(), // trader id
                     true,
-                    (offer.getDirection() == OfferPayload.Direction.BUY) == isMaker,
+                    (offer.getDirection() == OfferDirection.BUY) == isMaker,
                     isMaker,
-                    pubKeyRing,
+                    pubKeyRingProvider.get(),
                     trade.getDate().getTime(),
                     trade.getMaxTradePeriodDate().getTime(),
                     trade.getContract(),
@@ -545,40 +559,12 @@ public class PendingTradesDataModel extends ActivatableDataModel {
         } else if (useArbitration) {
           // Only if we have completed mediation we allow arbitration
           disputeManager = arbitrationManager;
-          PubKeyRing arbitratorPubKeyRing = trade.getArbitratorPubKeyRing();
-          checkNotNull(arbitratorPubKeyRing, "arbitratorPubKeyRing must not be null");
-          byte[] depositTxSerialized = null; // depositTx.bitcoinSerialize(); TODO (woodser)
-          String depositTxHashAsString = null; // depositTx.getHashAsString(); TODO (woodser)
-          Dispute dispute = new Dispute(new Date().getTime(),
-                  trade.getId(),
-                  pubKeyRing.hashCode(), // traderId,
-                  true,
-                  (offer.getDirection() == OfferPayload.Direction.BUY) == isMaker,
-                  isMaker,
-                  pubKeyRing,
-                  trade.getDate().getTime(),
-                  trade.getMaxTradePeriodDate().getTime(),
-                  trade.getContract(),
-                  trade.getContractHash(),
-                  depositTxSerialized,
-                  payoutTxSerialized,
-                  depositTxHashAsString,
-                  payoutTxHashAsString,
-                  trade.getContractAsJson(),
-                  trade.getMaker().getContractSignature(),
-                  trade.getTaker().getContractSignature(),
-                  trade.getMaker().getPaymentAccountPayload(),
-                  trade.getTaker().getPaymentAccountPayload(),
-                  arbitratorPubKeyRing,
-                  isSupportTicket,
-                  SupportType.ARBITRATION);
-
-          trade.setDisputeState(Trade.DisputeState.DISPUTE_REQUESTED);
+          Dispute dispute = disputesService.createDisputeForTrade(trade, offer, pubKeyRingProvider.get(), isMaker, isSupportTicket);
           sendOpenNewDisputeMessage(dispute, false, disputeManager, updatedMultisigHex);
+          tradeManager.requestPersistence();
         } else {
             log.warn("Invalid dispute state {}", disputeState.name());
         }
-        tradeManager.requestPersistence();
     }
 
     private void sendOpenNewDisputeMessage(Dispute dispute, boolean reOpen, DisputeManager<? extends DisputeList<Dispute>> disputeManager, String senderMultisigHex) {
@@ -597,7 +583,7 @@ public class PendingTradesDataModel extends ActivatableDataModel {
     }
 
     public boolean isReadyForTxBroadcast() {
-        return GUIUtil.isReadyForTxBroadcastOrShowPopup(p2PService, walletsSetup);
+        return GUIUtil.isReadyForTxBroadcastOrShowPopup(p2PService, connectionService);
     }
 
     public boolean isBootstrappedOrShowPopup() {
