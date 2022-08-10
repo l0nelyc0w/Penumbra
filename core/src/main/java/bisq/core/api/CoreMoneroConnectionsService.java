@@ -3,9 +3,10 @@ package bisq.core.api;
 import bisq.common.config.BaseCurrencyNetwork;
 import bisq.common.config.Config;
 import bisq.core.btc.model.EncryptedConnectionList;
-
-import bisq.common.config.Config;
-
+import bisq.core.btc.setup.DownloadListener;
+import bisq.core.btc.setup.WalletsSetup;
+import bisq.core.trade.TradeUtils;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -37,12 +38,19 @@ import monero.daemon.model.MoneroPeer;
 @Singleton
 public final class CoreMoneroConnectionsService {
 
-    // TODO: this connection manager should update app status, don't poll in WalletsSetup every 30 seconds
-    private static final long DEFAULT_REFRESH_PERIOD = 15_000L; // check the connection every 15 seconds per default
-    private final Config config;
+    private static final int MIN_BROADCAST_CONNECTIONS = 0; // TODO: 0 for stagenet, 5+ for mainnet
+    private static final long REFRESH_PERIOD_LOCAL_MS = 5000; // refresh period when connected to local node
+    private static final long REFRESH_PERIOD_REMOTE_MS = 20000; // refresh period when connected to remote node
 
-    // TODO (woodser): support each network type, move to config, remove localhost authentication
-    private  List<MoneroRpcConnection> DEFAULT_CONNECTIONS;
+    // default Monero nodes
+    private static final Map<BaseCurrencyNetwork, List<MoneroRpcConnection>> DEFAULT_CONNECTIONS;
+    static {
+        DEFAULT_CONNECTIONS = new HashMap<BaseCurrencyNetwork, List<MoneroRpcConnection>>();
+
+        DEFAULT_CONNECTIONS.put(BaseCurrencyNetwork.XMR_MAINNET, Arrays.asList(
+                new MoneroRpcConnection("http://127.0.0.1:18081").setPriority(1)
+        ));
+    }
 
     private final Object lock = new Object();
     private final Config config;
@@ -64,31 +72,28 @@ public final class CoreMoneroConnectionsService {
 
 
     @Inject
-    public CoreMoneroConnectionsService(MoneroConnectionManager connectionManager,
-                                        EncryptedConnectionList connectionList,
-                                        Config config) {
+    public CoreMoneroConnectionsService(Config config,
+                                        CoreContext coreContext,
+                                        WalletsSetup walletsSetup,
+                                        CoreAccountService accountService,
+                                        CoreMoneroNodeService nodeService,
+                                        MoneroConnectionManager connectionManager,
+                                        EncryptedConnectionList connectionList) {
+        this.config = config;
+        this.coreContext = coreContext;
+        this.accountService = accountService;
+        this.nodeService = nodeService;
         this.connectionManager = connectionManager;
         this.connectionList = connectionList;
-        this.config = config;
-        this.DEFAULT_CONNECTIONS = Arrays.asList(
-                new MoneroRpcConnection(config.daemonAddress, config.daemonUsername, config.daemonPassword).setPriority(1)
-        );
-    }
 
-    public void initialize() {
-        synchronized (lock) {
-            // load connections
-            connectionList.getConnections().forEach(connectionManager::addConnection);
+        // initialize after account open and basic setup
+        walletsSetup.addSetupTaskHandler(() -> { // TODO: use something better than legacy WalletSetup for notification to initialize
 
             // initialize from connections read from disk
             initialize();
 
-
-
-            // restore last used connection
-            connectionList.getCurrentConnectionUri().ifPresentOrElse(connectionManager::setConnection, () -> {
-                connectionManager.setConnection(DEFAULT_CONNECTIONS.get(0).getUri()); // default to localhost
-            });
+            // listen for account to be opened or password changed
+            accountService.addListener(new AccountServiceListener() {
 
                 @Override
                 public void onAccountOpened() {
@@ -273,7 +278,7 @@ public final class CoreMoneroConnectionsService {
 
     /**
      * Signals that both the daemon and wallet have synced.
-     * 
+     *
      * TODO: separate daemon and wallet download/done listeners
      */
     public void doneDownload() {

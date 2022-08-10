@@ -463,6 +463,8 @@ public class WalletsSetup {
     }
 
     public boolean isChainHeightSyncedWithinTolerance() {
+        throw new RuntimeException("WalletsSetup.isChainHeightSyncedWithinTolerance() not implemented for BTC");
+        /*
         Long peersChainHeight = walletConfig.vXmrDaemon.getSyncInfo().getHeight();
         if (peersChainHeight == 0) return true; // monero-daemon-rpc sync_info's target_height returns 0 when node is fully synced
         long bestChainHeight = chainHeight.get();
@@ -471,6 +473,7 @@ public class WalletsSetup {
         }
         log.warn("Our chain height: {} is out of sync with peer nodes chain height: {}", chainHeight.get(), peersChainHeight);
         return false;
+         */
     }
 
     public Set<Address> getAddressesByContext(@SuppressWarnings("SameParameterValue") AddressEntry.Context context) {

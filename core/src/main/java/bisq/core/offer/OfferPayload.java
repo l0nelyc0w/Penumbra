@@ -75,7 +75,7 @@ public final class OfferPayload implements ProtectedStoragePayload, ExpirablePay
     protected transient byte[] hash;
     @Nullable
     protected final Map<String, String> extraDataMap;
-    
+
     // address and signature of signing arbitrator
     @Setter
     protected NodeAddress arbitratorSigner;
@@ -85,7 +85,7 @@ public final class OfferPayload implements ProtectedStoragePayload, ExpirablePay
     @Setter
     @Nullable
     protected List<String> reserveTxKeyImages;
-    
+
     // Keys for extra map
     // Only set for fiat offers
     public static final String ACCOUNT_AGE_WITNESS_HASH = "accountAgeWitnessHash";
@@ -151,26 +151,6 @@ public final class OfferPayload implements ProtectedStoragePayload, ExpirablePay
     private final boolean isPrivateOffer;
     @Nullable
     private final String hashOfChallenge;
-
-    // Should be only used in emergency case if we need to add data but do not want to break backward compatibility
-    // at the P2P network storage checks. The hash of the object will be used to verify if the data is valid. Any new
-    // field in a class would break that hash and therefore break the storage mechanism.
-
-    // extraDataMap used from v0.6 on for hashOfPaymentAccount
-    // key ACCOUNT_AGE_WITNESS, value: hex string of hashOfPaymentAccount byte array
-    @Nullable
-    private final Map<String, String> extraDataMap;
-    private final int protocolVersion;
-
-    // address and signature of signing arbitrator
-    @Setter
-    private NodeAddress arbitratorSigner;
-    @Setter
-    @Nullable
-    private String arbitratorSignature;
-    @Setter
-    @Nullable
-    private List<String> reserveTxKeyImages;
 
 
     ///////////////////////////////////////////////////////////////////////////////////////////

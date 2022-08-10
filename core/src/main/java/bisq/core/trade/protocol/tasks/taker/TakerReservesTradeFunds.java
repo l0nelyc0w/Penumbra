@@ -39,20 +39,15 @@ public class TakerReservesTradeFunds extends TradeTask {
         try {
             runInterceptHook();
 
-            // create transaction to reserve trade
+            // freeze trade funds and get reserve tx
             String returnAddress = model.getXmrWalletService().getOrCreateAddressEntry(trade.getOffer().getId(), XmrAddressEntry.Context.TRADE_PAYOUT).getAddressString();
             BigInteger takerFee = ParsingUtils.coinToAtomicUnits(trade.getTakerFee());
             BigInteger depositAmount = ParsingUtils.centinerosToAtomicUnits(processModel.getFundsNeededForTradeAsLong());
-            MoneroTxWallet reserveTx = TradeUtils.createReserveTx(model.getXmrWalletService(), trade.getId(), takerFee, returnAddress, depositAmount);
+            MoneroTxWallet reserveTx = model.getXmrWalletService().createReserveTx(takerFee, returnAddress, depositAmount);
 
-            // freeze trade funds
-            // TODO (woodser): synchronize to handle potential race condition where concurrent trades freeze each other's outputs
-            List<String> reserveTxKeyImages = new ArrayList<String>();
-            MoneroWallet wallet = model.getXmrWalletService().getWallet();
-            for (MoneroOutput input : reserveTx.getInputs()) {
-                reserveTxKeyImages.add(input.getKeyImage().getHex());
-                wallet.freezeOutput(input.getKeyImage().getHex());
-            }
+            // collect reserved key images // TODO (woodser): switch to proof of reserve?
+            List<String> reservedKeyImages = new ArrayList<String>();
+            for (MoneroOutput input : reserveTx.getInputs()) reservedKeyImages.add(input.getKeyImage().getHex());
 
             // save process state
             // TODO (woodser): persist

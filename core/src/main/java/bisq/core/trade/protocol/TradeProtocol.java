@@ -60,7 +60,7 @@ import javax.annotation.Nullable;
 @Slf4j
 public abstract class TradeProtocol implements DecryptedDirectMessageListener, DecryptedMailboxListener {
 
-    public static final int TRADE_TIMEOUT = 60;
+    public static final int TRADE_TIMEOUT = 3600;
 
     protected final ProcessModel processModel;
     protected final Trade trade;
@@ -270,7 +270,7 @@ public abstract class TradeProtocol implements DecryptedDirectMessageListener, D
     protected FluentProtocol.Condition anyPhase(Trade.Phase... expectedPhases) {
         return new FluentProtocol.Condition(trade).anyPhase(expectedPhases);
     }
-    
+
     protected FluentProtocol.Condition state(Trade.State expectedState) {
         return new FluentProtocol.Condition(trade).state(expectedState);
     }

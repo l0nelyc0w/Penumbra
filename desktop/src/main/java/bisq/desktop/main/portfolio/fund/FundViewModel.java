@@ -19,7 +19,6 @@ package bisq.desktop.main.portfolio.fund;
 
 import bisq.desktop.common.model.ActivatableWithDataModel;
 import bisq.desktop.common.model.ViewModel;
-import bisq.desktop.main.PriceUtil;
 import bisq.desktop.util.GUIUtil;
 
 import bisq.core.offer.Offer;
@@ -44,19 +43,16 @@ import monero.wallet.model.MoneroTxWallet;
 
 class FundViewModel extends ActivatableWithDataModel<FundDataModel> implements ViewModel {
     private final P2PService p2PService;
-    private final PriceUtil priceUtil;
     private final CoinFormatter btcFormatter;
 
 
     @Inject
     public FundViewModel(FundDataModel dataModel,
                          P2PService p2PService,
-                         PriceUtil priceUtil,
                          @Named(FormattingUtils.BTC_FORMATTER_KEY) CoinFormatter btcFormatter) {
         super(dataModel);
 
         this.p2PService = p2PService;
-        this.priceUtil = priceUtil;
         this.btcFormatter = btcFormatter;
     }
 

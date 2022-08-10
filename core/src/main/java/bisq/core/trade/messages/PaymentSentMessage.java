@@ -76,7 +76,9 @@ public final class PaymentSentMessage extends TradeMailboxMessage {
                                                   @Nullable String counterCurrencyTxId,
                                                   @Nullable String counterCurrencyExtraData,
                                                   String uid,
-                                                  String messageVersion) {
+                                                  String messageVersion,
+                                                  @Nullable String signedPayoutTxHex,
+                                                  @Nullable String updatedMultisigHex) {
         super(messageVersion, tradeId, uid);
         this.buyerPayoutAddress = buyerPayoutAddress;
         this.senderNodeAddress = senderNodeAddress;
@@ -102,9 +104,9 @@ public final class PaymentSentMessage extends TradeMailboxMessage {
         return getNetworkEnvelopeBuilder().setPaymentSentMessage(builder).build();
     }
 
-    public static CounterCurrencyTransferStartedMessage fromProto(protobuf.CounterCurrencyTransferStartedMessage proto,
+    public static PaymentSentMessage fromProto(protobuf.PaymentSentMessage proto,
                                                                   String messageVersion) {
-        return new CounterCurrencyTransferStartedMessage(proto.getTradeId(),
+        return new PaymentSentMessage(proto.getTradeId(),
                 proto.getBuyerPayoutAddress(),
                 NodeAddress.fromProto(proto.getSenderNodeAddress()),
                 ProtoUtil.stringOrNullFromProto(proto.getCounterCurrencyTxId()),

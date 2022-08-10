@@ -44,12 +44,6 @@ public class ProcessSignContractResponse extends TradeTask {
         try {
           runInterceptHook();
 
-          // wait until contract is available from peer's sign contract request
-          // TODO (woodser): this will loop if peer disappears; use proper notification
-          while (trade.getContract() == null) {
-              GenUtils.waitFor(250);
-          }
-
           // get contract and signature
           String contractAsJson = trade.getContractAsJson();
           SignContractResponse response = (SignContractResponse) processModel.getTradeMessage(); // TODO (woodser): verify response
@@ -75,7 +69,7 @@ public class ProcessSignContractResponse extends TradeTask {
           if (processModel.getArbitrator().getContractSignature() != null && processModel.getMaker().getContractSignature() != null && processModel.getTaker().getContractSignature() != null) {
 
               // start listening for deposit txs
-              trade.setupDepositTxsListener();
+              trade.listenForDepositTxs();
 
               // create request for arbitrator to deposit funds to multisig
               DepositRequest request = new DepositRequest(
@@ -107,10 +101,6 @@ public class ProcessSignContractResponse extends TradeTask {
           } else {
               complete(); // does not yet have needed signatures
           }
-
-          // persist and complete
-          processModel.getTradeManager().requestPersistence();
-          complete();
         } catch (Throwable t) {
           failed(t);
         }

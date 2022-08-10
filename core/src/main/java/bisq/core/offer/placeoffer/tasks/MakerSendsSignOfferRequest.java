@@ -83,7 +83,7 @@ public class MakerSendsSignOfferRequest extends Task<PlaceOfferModel> {
                     returnAddress);
 
             // get signing arbitrator
-            Mediator arbitrator = checkNotNull(model.getUser().getAcceptedMediatorByAddress(offer.getOfferPayload().getArbitratorSigner()), "user.getAcceptedMediatorByAddress(mediatorNodeAddress) must not be null");
+            Arbitrator arbitrator = checkNotNull(model.getUser().getAcceptedArbitratorByAddress(offer.getOfferPayload().getArbitratorSigner()), "user.getAcceptedArbitratorByAddress(arbitratorNodeAddress) must not be null");
 
             // complete on successful ack message
             DecryptedDirectMessageListener ackListener = new DecryptedDirectMessageListener() {

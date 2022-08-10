@@ -100,11 +100,7 @@ public final class OpenOffer implements Tradable {
         this(offer, triggerPrice, false);
     }
 
-    public OpenOffer(Offer offer,
-                     long triggerPrice,
-                     String reserveTxHash,
-                     String reserveTxHex,
-                     String reserveTxKey) {
+    public OpenOffer(Offer offer, long triggerPrice, boolean autoSplit) {
         this.offer = offer;
         this.triggerPrice = triggerPrice;
         this.autoSplit = autoSplit;

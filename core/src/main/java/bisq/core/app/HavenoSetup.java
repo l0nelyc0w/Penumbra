@@ -117,7 +117,7 @@ public class HavenoSetup {
         void onSetupComplete();
     }
 
-    private static final long STARTUP_TIMEOUT_MINUTES = 30;
+    private static final long STARTUP_TIMEOUT_MINUTES = 3600;
 
     private final DomainInitialisation domainInitialisation;
     private final P2PNetworkSetup p2PNetworkSetup;

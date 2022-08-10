@@ -53,53 +53,16 @@ public class BuyerPreparesPaymentSentMessage extends TradeTask {
     protected void run() {
         try {
             runInterceptHook();
-            
+
             // validate state
             Preconditions.checkNotNull(trade.getAmount(), "trade.getTradeAmount() must not be null");
             Preconditions.checkNotNull(trade.getMakerDepositTx(), "trade.getMakerDepositTx() must not be null");
             Preconditions.checkNotNull(trade.getTakerDepositTx(), "trade.getTakerDepositTx() must not be null");
             checkNotNull(trade.getOffer(), "offer must not be null");
-            
+
             // get multisig wallet
             XmrWalletService walletService = processModel.getProvider().getXmrWalletService();
             MoneroWallet multisigWallet = walletService.getMultisigWallet(trade.getId());
-            String sellerPayoutAddress = trade.getTradingPeer().getPayoutAddressString();
-            String buyerPayoutAddress = trade instanceof MakerTrade ? trade.getContract().getMakerPayoutAddressString() : trade.getContract().getTakerPayoutAddressString();
-            Preconditions.checkNotNull(sellerPayoutAddress, "sellerPayoutAddress must not be null");
-            Preconditions.checkNotNull(buyerPayoutAddress, "buyerPayoutAddress must not be null");
-            BigInteger sellerDepositAmount = multisigWallet.getTx(trade instanceof MakerTrade ? processModel.getTaker().getDepositTxHash() : processModel.getMaker().getDepositTxHash()).getIncomingAmount();
-            BigInteger buyerDepositAmount = multisigWallet.getTx(trade instanceof MakerTrade ? processModel.getMaker().getDepositTxHash() : processModel.getTaker().getDepositTxHash()).getIncomingAmount();
-            BigInteger tradeAmount = ParsingUtils.coinToAtomicUnits(trade.getTradeAmount());
-            BigInteger buyerPayoutAmount = buyerDepositAmount.add(tradeAmount);
-            BigInteger sellerPayoutAmount = sellerDepositAmount.subtract(tradeAmount);
-
-            // create transaction to get fee estimate
-            if (multisigWallet.isMultisigImportNeeded()) throw new RuntimeException("Multisig import is still needed!!!");
-            /*
-            MoneroTxWallet feeEstimateTx = multisigWallet.createTx(new MoneroTxConfig()
-                    .setAccountIndex(0)
-                    .addDestination(buyerPayoutAddress, buyerPayoutAmount.multiply(BigInteger.valueOf(4)).divide(BigInteger.valueOf(5))) // reduce payment amount to compute fee of similar tx
-                    .addDestination(sellerPayoutAddress, sellerPayoutAmount.multiply(BigInteger.valueOf(4)).divide(BigInteger.valueOf(5)))
-                    .setRelay(false)
-            );*/
-
-            // attempt to create payout tx by increasing estimated fee until successful
-            MoneroTxWallet payoutTx = null;
-            int numAttempts = 0;
-            while (payoutTx == null && numAttempts < 50) {
-              BigInteger feeEstimate = new BigInteger("1000000000");
-              try {
-                numAttempts++;
-                payoutTx = multisigWallet.createTx(new MoneroTxConfig()
-                        .setAccountIndex(0)
-                        .addDestination(new MoneroDestination(buyerPayoutAddress, buyerPayoutAmount.subtract(feeEstimate.divide(BigInteger.valueOf(2))))) // split fee subtracted from each payout amount
-                        .addDestination(new MoneroDestination(sellerPayoutAddress, sellerPayoutAmount.subtract(feeEstimate.divide(BigInteger.valueOf(2))))) // TODO (woodser): support addDestination(addr, amt) without new
-                        .setRelay(false));
-              } catch (MoneroError e) {
-                //e.printStackTrace();
-                //System.out.println("FAILED TO CREATE PAYOUT TX, ITERATING...");
-              }
-            }
 
             // create payout tx if we have seller's updated multisig hex
             if (!multisigWallet.isMultisigImportNeeded()) {
@@ -110,7 +73,7 @@ public class BuyerPreparesPaymentSentMessage extends TradeTask {
             } else {
                 if (trade.getSelf().getUpdatedMultisigHex() == null) trade.getSelf().setUpdatedMultisigHex(multisigWallet.exportMultisigHex()); // only export multisig hex once
             }
-            
+
             // close multisig wallet
             walletService.closeMultisigWallet(trade.getId());
             complete();
@@ -118,7 +81,7 @@ public class BuyerPreparesPaymentSentMessage extends TradeTask {
             failed(t);
         }
     }
-    
+
     // TODO (woodser): move these to gen utils
 
     /**

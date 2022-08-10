@@ -556,7 +556,9 @@ public class TradeManager implements PersistedDataHost, DecryptedDirectMessageLi
           trade.getSelf().setReserveTxHex(openOffer.getReserveTxHex());
           trade.getSelf().setReserveTxKey(openOffer.getReserveTxKey());
           trade.getSelf().setReserveTxKeyImages(offer.getOfferPayload().getReserveTxKeyImages());
-          tradableList.add(trade);
+          synchronized (tradableList) {
+              tradableList.add(trade);
+          }
 
           // notify on phase changes
           // TODO (woodser): save subscription, bind on startup
@@ -1053,7 +1055,7 @@ public class TradeManager implements PersistedDataHost, DecryptedDirectMessageLi
         else
             return offer.getDirection() == OfferDirection.SELL;
     }
-    
+
     // TODO (woodser): make Optional<Trade> versus Trade return types consistent
     public Trade getTrade(String tradeId) {
         return getOpenTrade(tradeId).orElseGet(() -> getClosedTrade(tradeId).orElseGet(() -> null));
@@ -1088,13 +1090,14 @@ public class TradeManager implements PersistedDataHost, DecryptedDirectMessageLi
                     }
                 }
 
-            p2PService.removeDecryptedDirectMessageListener(getTradeProtocol(trade));
-            try {
-                xmrWalletService.deleteMultisigWallet(trade.getId());
-            } catch (Error e){
-                log.warn("Failed to delete multisig");
+                // delete trade wallet when empty
+                deleteTradeWalletWhenEmpty(trade);
+
+                // unregister and persist
+                p2PService.removeDecryptedDirectMessageListener(getTradeProtocol(trade));
+                tradableList.remove(trade);
+                requestPersistence();
             }
-            requestPersistence();
         }
     }
 

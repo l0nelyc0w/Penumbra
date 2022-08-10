@@ -30,27 +30,18 @@ public class Version {
     // VERSION = 0.5.0 introduces proto buffer for the P2P network and local DB and is a not backward compatible update
     // Therefore all sub versions start again with 1
     // We use semantic versioning with major, minor and patch
-    public static final String VERSION = "0.0.1";
+    public static final String VERSION = "0.2";
+    public static final String FLAVOR = "Penumbra";
 
     /**
      * Holds a list of the tagged resource files for optimizing the getData requests.
      * This must not contain each version but only those where we add new version-tagged resource files for
      * historical data stores.
      */
-    public static final List<String> HISTORICAL_RESOURCE_FILE_VERSION_TAGS = Arrays.asList("1.4.0", "1.5.0", "1.5.2",
-            "1.5.5", "1.5.7", "1.6.0");
+    public static final List<String> HISTORICAL_RESOURCE_FILE_VERSION_TAGS = Arrays.asList("0.1");
 
-    public static int getMajorVersion(String version) {
-        return getSubVersion(version, 0);
-    }
+    public static String getVersion() { return VERSION; }
 
-    public static int getMinorVersion(String version) {
-        return getSubVersion(version, 1);
-    }
-
-    public static int getPatchVersion(String version) {
-        return getSubVersion(version, 2);
-    }
 
     public static boolean isNewVersion(String newVersion) {
         return isNewVersion(newVersion, VERSION);
@@ -58,19 +49,13 @@ public class Version {
 
     public static boolean isNewVersion(String newVersion, String currentVersion) {
         if (newVersion.equals(currentVersion))
-            return false;
-        else if (getMajorVersion(newVersion) > getMajorVersion(currentVersion))
+             return false;
+        /*
+        else if (getVersion() > currentVersion)
             return true;
-        else if (getMajorVersion(newVersion) < getMajorVersion(currentVersion))
+        else if (getVersion() < currentVersion)
             return false;
-        else if (getMinorVersion(newVersion) > getMinorVersion(currentVersion))
-            return true;
-        else if (getMinorVersion(newVersion) < getMinorVersion(currentVersion))
-            return false;
-        else if (getPatchVersion(newVersion) > getPatchVersion(currentVersion))
-            return true;
-        else if (getPatchVersion(newVersion) < getPatchVersion(currentVersion))
-            return false;
+         */
         else
             return false;
     }
@@ -129,6 +114,7 @@ public class Version {
     public static void printVersion() {
         log.info("Version{" +
                 "VERSION=" + VERSION +
+                ", FLAVOR=" + FLAVOR +
                 ", P2P_NETWORK_VERSION=" + P2P_NETWORK_VERSION +
                 ", LOCAL_DB_VERSION=" + LOCAL_DB_VERSION +
                 ", TRADE_PROTOCOL_VERSION=" + TRADE_PROTOCOL_VERSION +
@@ -137,12 +123,7 @@ public class Version {
                 '}');
     }
 
-    public static final byte COMPENSATION_REQUEST = (byte) 0x01;
-    public static final byte REIMBURSEMENT_REQUEST = (byte) 0x01;
-    public static final byte PROPOSAL = (byte) 0x01;
-    public static final byte BLIND_VOTE = (byte) 0x01;
-    public static final byte VOTE_REVEAL = (byte) 0x01;
-    public static final byte LOCKUP = (byte) 0x01;
-    public static final byte ASSET_LISTING_FEE = (byte) 0x01;
-    public static final byte PROOF_OF_BURN = (byte) 0x01;
+    public static String getVersionFlavor() {
+        return FLAVOR;
+    }
 }

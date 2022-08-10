@@ -113,6 +113,12 @@ public final class TradingPeer implements PersistablePayload {
     private String depositTxHex;
     @Nullable
     private String depositTxKey;
+    @Nullable
+    transient private MoneroTxWallet payoutTx;
+    @Nullable
+    private String payoutTxHex;
+    @Nullable
+    private String updatedMultisigHex;
 
     public TradingPeer() {
     }

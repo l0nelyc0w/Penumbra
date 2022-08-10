@@ -18,8 +18,8 @@
 package bisq.core.offer;
 
 import bisq.core.api.CoreContext;
+import bisq.core.api.CoreMoneroConnectionsService;
 import bisq.core.btc.model.XmrAddressEntry;
-import bisq.core.btc.model.XmrAddressEntryList;
 import bisq.core.btc.wallet.BtcWalletService;
 import bisq.core.btc.wallet.TradeWalletService;
 import bisq.core.btc.wallet.XmrWalletService;
@@ -94,7 +94,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import lombok.Getter;
+
+
+
+import monero.daemon.model.MoneroOutput;
+import monero.wallet.MoneroWallet;
+import monero.wallet.model.MoneroDestination;
 import monero.wallet.model.MoneroIncomingTransfer;
+import monero.wallet.model.MoneroOutputQuery;
+import monero.wallet.model.MoneroOutputWallet;
+import monero.wallet.model.MoneroTxConfig;
 import monero.wallet.model.MoneroTxQuery;
 import monero.wallet.model.MoneroTxWallet;
 import monero.wallet.model.MoneroWalletListener;
@@ -103,16 +112,6 @@ import org.jetbrains.annotations.NotNull;
 import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-
-
-
-import monero.daemon.model.MoneroOutput;
-import monero.wallet.MoneroWallet;
-import monero.wallet.model.MoneroDestination;
-import monero.wallet.model.MoneroOutputQuery;
-import monero.wallet.model.MoneroOutputWallet;
-import monero.wallet.model.MoneroTxConfig;
-import monero.wallet.model.MoneroTxWallet;
 
 public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMessageListener, PersistedDataHost {
     private static final Logger log = LoggerFactory.getLogger(OpenOfferManager.class);
@@ -143,8 +142,6 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
     private final Map<String, OpenOffer> offersToBeEdited = new HashMap<>();
     private final TradableList<OpenOffer> openOffers = new TradableList<>();
     private final SignedOfferList signedOffers = new SignedOfferList();
-
-    //private final PersistenceManager<XmrAddressEntryList> pendingOfferPersistentManager;
     private final PersistenceManager<SignedOfferList> signedOfferPersistenceManager;
     private final Map<String, PlaceOfferProtocol> placeOfferProtocols = new HashMap<String, PlaceOfferProtocol>();
     private BigInteger lastUnlockedBalance;
@@ -176,7 +173,6 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                             MediatorManager mediatorManager,
                             FilterManager filterManager,
                             Broadcaster broadcaster,
-                            //PersistenceManager<XmrAddressEntryList> pendingOfferPersistenceManager,
                             PersistenceManager<TradableList<OpenOffer>> persistenceManager,
                             PersistenceManager<SignedOfferList> signedOfferPersistenceManager) {
         this.coreContext = coreContext;
@@ -219,7 +215,6 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                     completeHandler);
                 },
                 completeHandler);
-
     }
 
     public void onAllServicesInitialized() {
@@ -428,46 +423,23 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                            ErrorMessageHandler errorMessageHandler) {
         checkNotNull(offer.getMakerFee(), "makerFee must not be null");
 
-        Coin reservedFundsForOffer = createOfferService.getReservedFundsForOffer(offer.getDirection(),
-                offer.getAmount(),
-                buyerSecurityDeposit,
-                createOfferService.getSellerSecurityDepositAsDouble(buyerSecurityDeposit));
+        boolean autoSplit = false; // TODO: support in api
 
-        PlaceOfferModel model = new PlaceOfferModel(offer,
-                reservedFundsForOffer,
-                useSavingsWallet,
-                p2PService,
-                btcWalletService,
-                xmrWalletService,
-                tradeWalletService,
-                offerBookService,
-                arbitratorManager,
-                mediatorManager,
-                tradeStatisticsManager,
-                user,
-                keyRing,
-                filterManager);
-        PlaceOfferProtocol placeOfferProtocol = new PlaceOfferProtocol(
-                model,
-                transaction -> {
+        // TODO (woodser): validate offer
 
-                    // save reserve tx with open offer
-                    OpenOffer openOffer = new OpenOffer(offer, triggerPrice, model.getReserveTx().getHash(), model.getReserveTx().getFullHex(), model.getReserveTx().getKey());
-                    openOffers.add(openOffer);
-                    requestPersistence();
-                    resultHandler.handleResult(transaction);
-                    if (!stopped) {
-                        startPeriodicRepublishOffersTimer();
-                        startPeriodicRefreshOffersTimer();
-                    } else {
-                        log.debug("We have stopped already. We ignore that placeOfferProtocol.placeOffer.onResult call.");
-                    }
-                },
-                errorMessageHandler
-        );
+        // create open offer
+        OpenOffer openOffer = new OpenOffer(offer, triggerPrice, autoSplit);
 
-        placeOfferProtocols.put(offer.getId(), placeOfferProtocol);
-        placeOfferProtocol.placeOffer();  // TODO (woodser): if error placing offer (e.g. bad signature), remove protocol and unfreeze trade funds
+        // process open offer to schedule or post
+        processUnpostedOffer(openOffer, (transaction) -> {
+            openOffers.add(openOffer);
+            requestPersistence();
+            resultHandler.handleResult(transaction);
+        }, (errMessage) -> {
+            onRemoved(openOffer);
+            offer.setErrorMessage(errMessage);
+            errorMessageHandler.handleErrorMessage(errMessage);
+        });
     }
 
     // Remove from offerbook
@@ -898,7 +870,8 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
                     request.getReserveTxKeyImages(),
                     true);
 
-            String offerPayloadAsJson = Utilities.objectToJson(request.getOfferPayload());
+            // arbitrator signs offer to certify they have valid reserve tx
+            String offerPayloadAsJson = JsonUtil.objectToJson(request.getOfferPayload());
             String signature = Sig.sign(keyRing.getSignatureKeyPair().getPrivate(), offerPayloadAsJson);
             OfferPayload signedOfferPayload = request.getOfferPayload();
             signedOfferPayload.setArbitratorSignature(signature);
@@ -1063,12 +1036,6 @@ public class OpenOfferManager implements PeerManager.Listener, DecryptedDirectMe
             } else {
                 log.warn("handleOfferAvailabilityRequest: openOffer not found.");
                 availabilityResult = AvailabilityResult.OFFER_TAKEN;
-            }
-
-            if (btcWalletService.isUnconfirmedTransactionsLimitHit()) {
-                errorMessage = Res.get("shared.unconfirmedTransactionsLimitReached");
-                log.warn(errorMessage);
-                availabilityResult = AvailabilityResult.UNCONF_TX_LIMIT_HIT;
             }
 
             OfferAvailabilityResponse offerAvailabilityResponse = new OfferAvailabilityResponse(request.offerId,

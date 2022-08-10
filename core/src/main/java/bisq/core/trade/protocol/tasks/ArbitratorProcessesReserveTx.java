@@ -49,7 +49,7 @@ public class ArbitratorProcessesReserveTx extends TradeTask {
             Offer offer = trade.getOffer();
             InitTradeRequest request = (InitTradeRequest) processModel.getTradeMessage();
             boolean isFromTaker = request.getSenderNodeAddress().equals(trade.getTakerNodeAddress());
-            boolean isFromBuyer = isFromTaker ? offer.getDirection() == OfferPayload.Direction.SELL : offer.getDirection() == OfferPayload.Direction.BUY;
+            boolean isFromBuyer = isFromTaker ? offer.getDirection() == OfferDirection.SELL : offer.getDirection() == OfferDirection.BUY;
 
             // TODO (woodser): if signer online, should never be called by maker
 

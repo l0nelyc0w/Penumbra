@@ -40,7 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 import monero.daemon.MoneroDaemon;
 
 @Slf4j
-public class ProcessDepositRequest extends TradeTask {
+public class ArbitratorProcessesDepositRequest extends TradeTask {
 
     @SuppressWarnings({"unused"})
     public ArbitratorProcessesDepositRequest(TaskRunner taskHandler, Trade trade) {
@@ -90,11 +90,8 @@ public class ProcessDepositRequest extends TradeTask {
           MoneroDaemon daemon = xmrWalletService.getDaemon();
           daemon.flushTxPool(trader.getReserveTxHash());
 
-          // process and verify deposit tx
-          TradeUtils.processTradeTx(
-                  daemon,
-                  trade.getXmrWalletService().getWallet(),
-                  depositAddress,
+          // verify deposit tx
+          xmrWalletService.verifyTradeTx(depositAddress,
                   depositAmount,
                   tradeFee,
                   trader.getDepositTxHash(),
@@ -103,34 +100,30 @@ public class ProcessDepositRequest extends TradeTask {
                   null,
                   false);
 
-          // sychronize to send only one response
-          synchronized(processModel) {
+          // set deposit info
+          trader.setDepositTxHex(request.getDepositTxHex());
+          trader.setDepositTxKey(request.getDepositTxKey());
 
-              // set deposit info
-              trader.setDepositTxHex(request.getDepositTxHex());
-              trader.setDepositTxKey(request.getDepositTxKey());
+          // relay deposit txs when both available
+          // TODO (woodser): add small delay so tx has head start against double spend attempts?
+          if (processModel.getMaker().getDepositTxHex() != null && processModel.getTaker().getDepositTxHex() != null) {
 
-              // relay deposit txs when both available
-              // TODO (woodser): add small delay so tx has head start against double spend attempts?
-              if (processModel.getMaker().getDepositTxHex() != null && processModel.getTaker().getDepositTxHex() != null) {
+              // relay txs
+              daemon.submitTxHex(processModel.getMaker().getDepositTxHex()); // TODO (woodser): check that result is good. will need to release funds if one is submitted
+              daemon.submitTxHex(processModel.getTaker().getDepositTxHex());
 
-                  // relay txs
-                  daemon.submitTxHex(processModel.getMaker().getDepositTxHex());
-                  daemon.submitTxHex(processModel.getTaker().getDepositTxHex());
+              // create deposit response
+              DepositResponse response = new DepositResponse(
+                      trade.getOffer().getId(),
+                      processModel.getMyNodeAddress(),
+                      processModel.getPubKeyRing(),
+                      UUID.randomUUID().toString(),
+                      Version.getP2PMessageVersion(),
+                      new Date().getTime());
 
-                  // create deposit response
-                  DepositResponse response = new DepositResponse(
-                          trade.getOffer().getId(),
-                          processModel.getMyNodeAddress(),
-                          processModel.getPubKeyRing(),
-                          UUID.randomUUID().toString(),
-                          Version.getP2PMessageVersion(),
-                          new Date().getTime());
-
-                  // send deposit response to maker and taker
-                  sendDepositResponse(trade.getMakerNodeAddress(), trade.getMakerPubKeyRing(), response);
-                  sendDepositResponse(trade.getTakerNodeAddress(), trade.getTakerPubKeyRing(), response);
-              }
+              // send deposit response to maker and taker
+              sendDepositResponse(trade.getMakerNodeAddress(), trade.getMakerPubKeyRing(), response);
+              sendDepositResponse(trade.getTakerNodeAddress(), trade.getTakerPubKeyRing(), response);
           }
 
           // TODO (woodser): request persistence?

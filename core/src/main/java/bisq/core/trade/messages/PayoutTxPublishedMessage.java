@@ -65,7 +65,8 @@ public final class PayoutTxPublishedMessage extends TradeMailboxMessage {
                                      NodeAddress senderNodeAddress,
                                      @Nullable SignedWitness signedWitness,
                                      String uid,
-                                     String messageVersion) {
+                                     String messageVersion,
+                                     String payoutTxHex) {
         super(messageVersion, tradeId, uid);
         this.senderNodeAddress = senderNodeAddress;
         this.signedWitness = signedWitness;

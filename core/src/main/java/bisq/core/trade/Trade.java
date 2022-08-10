@@ -391,7 +391,7 @@ public abstract class Trade implements Tradable, Model {
     transient final private ObjectProperty<DisputeState> disputeStateProperty = new SimpleObjectProperty<>(disputeState);
     transient final private ObjectProperty<TradePeriodState> tradePeriodStateProperty = new SimpleObjectProperty<>(periodState);
     transient final private StringProperty errorMessageProperty = new SimpleStringProperty();
-    
+
     //  Mutable
     @Getter
     transient private boolean isInitialized;
@@ -507,7 +507,7 @@ public abstract class Trade implements Tradable, Model {
         this.takerNodeAddress = takerNodeAddress;
         this.arbitratorNodeAddress = arbitratorNodeAddress;
 
-        setTradeAmount(tradeAmount);
+        setAmount(tradeAmount);
     }
 
 
@@ -703,7 +703,7 @@ public abstract class Trade implements Tradable, Model {
 
     /**
      * Create a contract based on the current state.
-     * 
+     *
      * @param trade is the trade to create the contract from
      * @return the contract
      */
@@ -736,7 +736,7 @@ public abstract class Trade implements Tradable, Model {
 
     /**
      * Create the payout tx.
-     * 
+     *
      * @return MoneroTxWallet the payout tx when the trade is successfully completed
      */
     public MoneroTxWallet createPayoutTx() {
@@ -785,19 +785,87 @@ public abstract class Trade implements Tradable, Model {
         return payoutTx;
     }
 
-    public void setupDepositTxsListener() {
+    /**
+     * Verify and sign a payout tx.
+     *
+     * @param payoutTxHex is the payout tx hex to verify
+     * @return String the signed payout tx hex
+     */
+    public void verifySignAndPublishPayoutTx(String payoutTxHex) {
+        log.info("Verifying payout tx");
+
+        // gather relevant info
+        XmrWalletService walletService = processModel.getProvider().getXmrWalletService();
+        MoneroWallet multisigWallet = walletService.getMultisigWallet(getId());
+        Contract contract = getContract();
+        BigInteger sellerDepositAmount = multisigWallet.getTx(getSeller().getDepositTxHash()).getIncomingAmount();   // TODO (woodser): redundancy of processModel.getPreparedDepositTxId() vs this.getDepositTxId() necessary or avoidable?
+        BigInteger buyerDepositAmount = multisigWallet.getTx(getBuyer().getDepositTxHash()).getIncomingAmount();
+        BigInteger tradeAmount = ParsingUtils.coinToAtomicUnits(getAmount());
+
+        // parse payout tx
+        MoneroTxSet parsedTxSet = multisigWallet.describeTxSet(new MoneroTxSet().setMultisigTxHex(payoutTxHex));
+        if (parsedTxSet.getTxs() == null || parsedTxSet.getTxs().size() != 1) throw new RuntimeException("Bad payout tx"); // TODO (woodser): test nack
+        MoneroTxWallet payoutTx = parsedTxSet.getTxs().get(0);
+
+        // verify payout tx has exactly 2 destinations
+        if (payoutTx.getOutgoingTransfer() == null || payoutTx.getOutgoingTransfer().getDestinations() == null || payoutTx.getOutgoingTransfer().getDestinations().size() != 2) throw new RuntimeException("Payout tx does not have exactly two destinations");
+
+        // get buyer and seller destinations (order not preserved)
+        boolean buyerFirst = payoutTx.getOutgoingTransfer().getDestinations().get(0).getAddress().equals(contract.getBuyerPayoutAddressString());
+        MoneroDestination buyerPayoutDestination = payoutTx.getOutgoingTransfer().getDestinations().get(buyerFirst ? 0 : 1);
+        MoneroDestination sellerPayoutDestination = payoutTx.getOutgoingTransfer().getDestinations().get(buyerFirst ? 1 : 0);
+
+        // verify payout addresses
+        if (!buyerPayoutDestination.getAddress().equals(contract.getBuyerPayoutAddressString())) throw new RuntimeException("Buyer payout address does not match contract");
+        if (!sellerPayoutDestination.getAddress().equals(contract.getSellerPayoutAddressString())) throw new RuntimeException("Seller payout address does not match contract");
+
+        // verify change address is multisig's primary address
+        if (!payoutTx.getChangeAmount().equals(BigInteger.ZERO) && !payoutTx.getChangeAddress().equals(multisigWallet.getPrimaryAddress())) throw new RuntimeException("Change address is not multisig wallet's primary address");
+
+        // verify sum of outputs = destination amounts + change amount
+        if (!payoutTx.getOutputSum().equals(buyerPayoutDestination.getAmount().add(sellerPayoutDestination.getAmount()).add(payoutTx.getChangeAmount()))) throw new RuntimeException("Sum of outputs != destination amounts + change amount");
+
+        // verify buyer destination amount is deposit amount + this amount - 1/2 tx costs
+        BigInteger txCost = payoutTx.getFee().add(payoutTx.getChangeAmount());
+        BigInteger expectedBuyerPayout = buyerDepositAmount.add(tradeAmount).subtract(txCost.divide(BigInteger.valueOf(2)));
+        if (!buyerPayoutDestination.getAmount().equals(expectedBuyerPayout)) throw new RuntimeException("Buyer destination amount is not deposit amount + trade amount - 1/2 tx costs, " + buyerPayoutDestination.getAmount() + " vs " + expectedBuyerPayout);
+
+        // verify seller destination amount is deposit amount - this amount - 1/2 tx costs
+        BigInteger expectedSellerPayout = sellerDepositAmount.subtract(tradeAmount).subtract(txCost.divide(BigInteger.valueOf(2)));
+        if (!sellerPayoutDestination.getAmount().equals(expectedSellerPayout)) throw new RuntimeException("Seller destination amount is not deposit amount - trade amount - 1/2 tx costs, " + sellerPayoutDestination.getAmount() + " vs " + expectedSellerPayout);
+
+        // TODO (woodser): verify fee is reasonable (e.g. within 2x of fee estimate tx)
+
+        // sign payout tx
+        MoneroMultisigSignResult result = multisigWallet.signMultisigTxHex(payoutTxHex);
+        if (result.getSignedMultisigTxHex() == null) throw new RuntimeException("Error signing payout tx");
+        String signedPayoutTxHex = result.getSignedMultisigTxHex();
+
+        // submit payout tx
+        multisigWallet.submitMultisigTxHex(signedPayoutTxHex);
+        walletService.closeMultisigWallet(getId());
+
+        // update trade state
+        getSelf().setPayoutTxHex(signedPayoutTxHex);
+        setPayoutTx(parsedTxSet.getTxs().get(0));
+        setPayoutTxId(parsedTxSet.getTxs().get(0).getHash());
+        setState(isBuyer() ? Trade.State.BUYER_PUBLISHED_PAYOUT_TX : Trade.State.SELLER_PUBLISHED_PAYOUT_TX);
+    }
+
+    /**
+     * Listen for deposit transactions to unlock and then apply the transactions.
+     *
+     * TODO: adopt for general purpose scheduling
+     * TODO: check and notify if deposits are dropped due to re-org
+     */
+    public void listenForDepositTxs() {
+        log.info("Listening for deposit txs to unlock for trade {}", getId());
 
         // ignore if already listening
         if (depositTxListener != null) {
             log.warn("Trade {} already listening for deposit txs", getId());
             return;
         }
-
-        // create listener for deposit transactions
-        MoneroWallet multisigWallet = processModel.getXmrWalletService().getMultisigWallet(getId());
-        depositTxListener = processModel.getXmrWalletService().new HavenoWalletListener(new MoneroWalletListener() { // TODO (woodser): separate into own class file
-            @Override
-            public void onOutputReceived(MoneroOutputWallet output) {
 
         // get daemon and primary wallet
         MoneroDaemon daemon = processModel.getXmrWalletService().getDaemon();
@@ -814,7 +882,7 @@ public abstract class Trade implements Tradable, Model {
             boolean makerFirst = txs.get(0).getHash().equals(processModel.getMaker().getDepositTxHash());
             makerDepositTx = makerFirst ? txs.get(0) : txs.get(1);
             takerDepositTx = makerFirst ? txs.get(1) : txs.get(0);
-            
+
             // check if deposit txs unlocked
             if (txs.get(0).isConfirmed() && txs.get(1).isConfirmed()) {
                 long unlockHeight = Math.max(txs.get(0).getHeight(), txs.get(0).getHeight()) + XmrWalletService.NUM_BLOCKS_UNLOCK - 1;
@@ -827,39 +895,39 @@ public abstract class Trade implements Tradable, Model {
 
         // create block listener
         depositTxListener = new MoneroWalletListener() {
-            
+
             Long unlockHeight = null;
 
             @Override
             public void onNewBlock(long height) {
-                
+
                 // ignore if no longer listening
                 if (depositTxListener == null) return;
-                
+
                 // ignore if before unlock height
                 if (unlockHeight != null && height < unlockHeight) return;
-                
+
                 // fetch txs from daemon
                 List<MoneroTx> txs = daemon.getTxs(Arrays.asList(processModel.getMaker().getDepositTxHash(), processModel.getTaker().getDepositTxHash()), true);
-                
+
                 // ignore if deposit txs not seen
                 if (txs.size() != 2) return;
-                
+
                 // update deposit txs
                 boolean makerFirst = txs.get(0).getHash().equals(processModel.getMaker().getDepositTxHash());
                 makerDepositTx = makerFirst ? txs.get(0) : txs.get(1);
                 takerDepositTx = makerFirst ? txs.get(1) : txs.get(0);
-                
+
                 // update state when deposit txs seen
                 if (txs.size() == 2) {
                     setState(this instanceof MakerTrade ? Trade.State.MAKER_SAW_DEPOSIT_TX_IN_NETWORK : Trade.State.TAKER_SAW_DEPOSIT_TX_IN_NETWORK);
                 }
-                
+
                 // compute unlock height
                 if (unlockHeight == null && txs.size() == 2 && txs.get(0).isConfirmed() && txs.get(1).isConfirmed()) {
                     unlockHeight = Math.max(txs.get(0).getHeight(), txs.get(0).getHeight()) + XmrWalletService.NUM_BLOCKS_UNLOCK - 1;
                 }
-                
+
                 // check if txs unlocked
                 if (unlockHeight != null && height == unlockHeight) {
                     log.info("Multisig deposits unlocked for trade {}", getId());
@@ -1062,6 +1130,22 @@ public abstract class Trade implements Tradable, Model {
     ///////////////////////////////////////////////////////////////////////////////////////////
     // Getter
     ///////////////////////////////////////////////////////////////////////////////////////////
+
+    public boolean isBuyer() {
+        return offer.getDirection() == OfferDirection.BUY;
+    }
+
+    public boolean isSeller() {
+        return offer.getDirection() == OfferDirection.SELL;
+    }
+
+    public boolean isMaker() {
+        return this instanceof MakerTrade;
+    }
+
+    public boolean isTaker() {
+        return this instanceof TakerTrade;
+    }
 
     public TradingPeer getSelf() {
         if (this instanceof MakerTrade) return processModel.getMaker();

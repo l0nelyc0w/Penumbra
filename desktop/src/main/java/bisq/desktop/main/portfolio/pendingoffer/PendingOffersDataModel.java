@@ -23,6 +23,7 @@ import bisq.desktop.main.portfolio.pendingoffer.PendingOfferListItem;
 import bisq.core.btc.model.XmrAddressEntry;
 import bisq.core.btc.model.XmrAddressEntryList;
 import bisq.core.offer.Offer;
+import bisq.core.offer.OfferDirection;
 import bisq.core.offer.OfferPayload;
 import bisq.core.offer.OpenOffer;
 import bisq.core.offer.OpenOfferManager;
@@ -74,7 +75,7 @@ class PendingOffersDataModel extends ActivatableDataModel {
         //return openOfferManager.getXmrAddressEntryList();
     }
 
-    public OfferPayload.Direction getDirection(Offer offer) {
+    public OfferDirection getDirection(Offer offer) {
         return openOfferManager.isMyOffer(offer) ? offer.getDirection() : offer.getMirroredDirection();
     }
 

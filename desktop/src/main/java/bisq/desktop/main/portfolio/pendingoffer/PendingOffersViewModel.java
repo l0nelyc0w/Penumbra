@@ -19,7 +19,6 @@ package bisq.desktop.main.portfolio.pendingoffer;
 
 import bisq.desktop.common.model.ActivatableWithDataModel;
 import bisq.desktop.common.model.ViewModel;
-import bisq.desktop.main.PriceUtil;
 import bisq.desktop.main.portfolio.pendingoffer.PendingOfferListItem;
 import bisq.desktop.main.portfolio.pendingoffer.PendingOffersDataModel;
 import bisq.desktop.util.DisplayUtils;
@@ -49,19 +48,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 class PendingOffersViewModel extends ActivatableWithDataModel<PendingOffersDataModel> implements ViewModel {
     private final P2PService p2PService;
-    private final PriceUtil priceUtil;
     private final CoinFormatter btcFormatter;
 
 
     @Inject
     public PendingOffersViewModel(PendingOffersDataModel dataModel,
                                   P2PService p2PService,
-                                  PriceUtil priceUtil,
                                   @Named(FormattingUtils.BTC_FORMATTER_KEY) CoinFormatter btcFormatter) {
         super(dataModel);
 
         this.p2PService = p2PService;
-        this.priceUtil = priceUtil;
         this.btcFormatter = btcFormatter;
     }
 
@@ -109,29 +105,6 @@ class PendingOffersViewModel extends ActivatableWithDataModel<PendingOffersDataM
 //            return Res.get("shared.na");
 //        }
 //    }
-
-    String getPriceDeviation(PendingOfferListItem item) {
-        Offer offer = item.getOffer();
-        return priceUtil.getMarketBasedPrice(offer, offer.getMirroredDirection())
-                .map(FormattingUtils::formatPercentagePrice)
-                .orElse("");
-    }
-
-    Double getPriceDeviationAsDouble(PendingOfferListItem item) {
-        Offer offer = item.getOffer();
-        return priceUtil.getMarketBasedPrice(offer, offer.getMirroredDirection()).orElse(0d);
-    }
-
-    String getVolume(PendingOfferListItem item) {
-        return (item != null) ? DisplayUtils.formatVolume(item.getOffer(), false, 0) + " " + item.getOffer().getCurrencyCode() : "";
-    }
-
-    String getDirectionLabel(PendingOfferListItem item) {
-        if ((item == null))
-            return "";
-
-        return DisplayUtils.getDirectionWithCode(dataModel.getDirection(item.getOffer()), item.getOffer().getCurrencyCode());
-    }
 
     String getMarketLabel(PendingOfferListItem item) {
         if ((item == null))

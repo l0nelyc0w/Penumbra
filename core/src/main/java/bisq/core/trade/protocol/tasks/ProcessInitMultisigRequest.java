@@ -73,41 +73,29 @@ public class ProcessInitMultisigRequest extends TradeTask {
           // TODO (woodser): run in separate thread to not block UI thread?
           // TODO (woodser): validate message has expected sender in previous step
 
-          // synchronize access to wallet
-          synchronized (lock) {
+          // get peer multisig participant
+          TradingPeer multisigParticipant;
+          if (request.getSenderNodeAddress().equals(trade.getMakerNodeAddress())) multisigParticipant = processModel.getMaker();
+          else if (request.getSenderNodeAddress().equals(trade.getTakerNodeAddress())) multisigParticipant = processModel.getTaker();
+          else if (request.getSenderNodeAddress().equals(trade.getArbitratorNodeAddress())) multisigParticipant = processModel.getArbitrator();
+          else throw new RuntimeException("Invalid sender to process init trade message: " + trade.getClass().getName());
 
-            // get peer multisig participant
-            TradingPeer multisigParticipant;
-            if (request.getSenderNodeAddress().equals(trade.getMakerNodeAddress())) multisigParticipant = processModel.getMaker();
-            else if (request.getSenderNodeAddress().equals(trade.getTakerNodeAddress())) multisigParticipant = processModel.getTaker();
-            else if (request.getSenderNodeAddress().equals(trade.getArbitratorNodeAddress())) multisigParticipant = processModel.getArbitrator();
-            else throw new RuntimeException("Invalid sender to process init trade message: " + trade.getClass().getName());
+          // reconcile peer's established multisig hex with message
+          if (multisigParticipant.getPreparedMultisigHex() == null) multisigParticipant.setPreparedMultisigHex(request.getPreparedMultisigHex());
+          else if (!multisigParticipant.getPreparedMultisigHex().equals(request.getPreparedMultisigHex())) throw new RuntimeException("Message's prepared multisig differs from previous messages, previous: " + multisigParticipant.getPreparedMultisigHex() + ", message: " + request.getPreparedMultisigHex());
+          if (multisigParticipant.getMadeMultisigHex() == null) multisigParticipant.setMadeMultisigHex(request.getMadeMultisigHex());
+          else if (!multisigParticipant.getMadeMultisigHex().equals(request.getMadeMultisigHex())) throw new RuntimeException("Message's made multisig differs from previous messages: " + request.getMadeMultisigHex() + " versus " + multisigParticipant.getMadeMultisigHex());
 
-            // reconcile peer's established multisig hex with message
-            if (multisigParticipant.getPreparedMultisigHex() == null) multisigParticipant.setPreparedMultisigHex(request.getPreparedMultisigHex());
-            else if (!multisigParticipant.getPreparedMultisigHex().equals(request.getPreparedMultisigHex())) throw new RuntimeException("Message's prepared multisig differs from previous messages, previous: " + multisigParticipant.getPreparedMultisigHex() + ", message: " + request.getPreparedMultisigHex());
-            if (multisigParticipant.getMadeMultisigHex() == null) multisigParticipant.setMadeMultisigHex(request.getMadeMultisigHex());
-            else if (!multisigParticipant.getMadeMultisigHex().equals(request.getMadeMultisigHex())) throw new RuntimeException("Message's made multisig differs from previous messages");
-
-            // prepare multisig if applicable
-            boolean updateParticipants = false;
-            if (processModel.getPreparedMultisigHex() == null) {
-              System.out.println("Preparing multisig wallet!");
-              multisigWallet = processModel.getProvider().getXmrWalletService().createMultisigWallet(trade.getId());
-              processModel.setPreparedMultisigHex(multisigWallet.prepareMultisig());
-              updateParticipants = true;
-            } else {
-              multisigWallet = processModel.getProvider().getXmrWalletService().getMultisigWallet(trade.getId());
-            }
-
-            // make multisig if applicable
-            TradingPeer[] peers = getMultisigPeers();
-            if (processModel.getMadeMultisigHex() == null && peers[0].getPreparedMultisigHex() != null && peers[1].getPreparedMultisigHex() != null) {
-              System.out.println("Making multisig wallet!");
-              MoneroMultisigInitResult result = multisigWallet.makeMultisig(Arrays.asList(peers[0].getPreparedMultisigHex(), peers[1].getPreparedMultisigHex()), 2, "abctesting123"); // TODO (woodser): move this to config
-              processModel.setMadeMultisigHex(result.getMultisigHex());
-              updateParticipants = true;
-            }
+          // prepare multisig if applicable
+          boolean updateParticipants = false;
+          if (processModel.getPreparedMultisigHex() == null) {
+            log.info("Preparing multisig wallet for trade {}", trade.getId());
+            multisigWallet = xmrWalletService.createMultisigWallet(trade.getId());
+            processModel.setPreparedMultisigHex(multisigWallet.prepareMultisig());
+            updateParticipants = true;
+          } else if (!processModel.isMultisigSetupComplete()) {
+            multisigWallet = xmrWalletService.getMultisigWallet(trade.getId());
+          }
 
           // make multisig if applicable
           TradingPeer[] peers = getMultisigPeers();

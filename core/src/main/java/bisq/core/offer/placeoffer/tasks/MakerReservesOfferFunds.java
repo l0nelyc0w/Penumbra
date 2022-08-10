@@ -27,6 +27,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import monero.daemon.model.MoneroOutput;
+import monero.wallet.MoneroWallet;
 import monero.wallet.model.MoneroTxWallet;
 
 public class MakerReservesOfferFunds extends Task<PlaceOfferModel> {
@@ -43,20 +44,15 @@ public class MakerReservesOfferFunds extends Task<PlaceOfferModel> {
         try {
             runInterceptHook();
 
-            // create transaction to reserve trade
+            // freeze offer funds and get reserve tx
             String returnAddress = model.getXmrWalletService().getOrCreateAddressEntry(offer.getId(), XmrAddressEntry.Context.TRADE_PAYOUT).getAddressString();
             BigInteger makerFee = ParsingUtils.coinToAtomicUnits(offer.getMakerFee());
             BigInteger depositAmount = ParsingUtils.coinToAtomicUnits(model.getReservedFundsForOffer());
-            reserveTx = TradeUtils.createReserveTx(model.getXmrWalletService(), offer.getId(), makerFee, returnAddress, depositAmount);
+            reserveTx = model.getXmrWalletService().createReserveTx(makerFee, returnAddress, depositAmount);
 
-            // freeze reserved outputs
-            // TODO (woodser): synchronize to handle potential race condition where concurrent trades freeze each other's outputs
+            // collect reserved key images // TODO (woodser): switch to proof of reserve?
             List<String> reservedKeyImages = new ArrayList<String>();
-            MoneroWallet wallet = model.getXmrWalletService().getWallet();
-            for (MoneroOutput input : reserveTx.getInputs()) {
-                reservedKeyImages.add(input.getKeyImage().getHex());
-                wallet.freezeOutput(input.getKeyImage().getHex());
-            }
+            for (MoneroOutput input : reserveTx.getInputs()) reservedKeyImages.add(input.getKeyImage().getHex());
 
             // save offer state
             // TODO (woodser): persist

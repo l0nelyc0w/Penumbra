@@ -240,7 +240,7 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         setFiatCurrencies(prefPayload.getFiatCurrencies());
         setCryptoCurrencies(prefPayload.getCryptoCurrencies());
         GlobalSettings.setDefaultTradeCurrency(preferredTradeCurrency);
-        
+
         // If a user has updated and the field was not set and get set to 0 by protobuf
         // As there is no way to detect that a primitive value field was set we cannot apply
         // a "marker" value like -1 to it. We also do not want to wrap the value in a new
@@ -553,7 +553,7 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         prefPayload.setSellScreenCurrencyCode(sellScreenCurrencyCode);
         requestPersistence();
     }
-
+/*
     public void setBuyScreenCryptoCurrencyCode(String buyScreenCurrencyCode) {
         prefPayload.setBuyScreenCryptoCurrencyCode(buyScreenCurrencyCode);
         requestPersistence();
@@ -563,7 +563,7 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         prefPayload.setSellScreenCryptoCurrencyCode(sellScreenCurrencyCode);
         requestPersistence();
     }
-
+*/
     public void setIgnoreTradersList(List<String> ignoreTradersList) {
         prefPayload.setIgnoreTradersList(ignoreTradersList);
         requestPersistence();
@@ -723,12 +723,12 @@ public final class Preferences implements PersistedDataHost, BridgeAddressProvid
         prefPayload.setIgnoreDustThreshold(value);
         requestPersistence();
     }
-
+/*
     public void setClearDataAfterDays(int value) {
         prefPayload.setClearDataAfterDays(value);
         requestPersistence();
     }
-
+*/
     public void setShowOffersMatchingMyAccounts(boolean value) {
         prefPayload.setShowOffersMatchingMyAccounts(value);
         requestPersistence();

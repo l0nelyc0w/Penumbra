@@ -1,9 +1,6 @@
 #!/bin/bash
 
-# Hashes and tag of our Monero testing binaries at https://github.com/haveno-dex/monero/releases
-MONERO_HASH_MAC="9188d0ee6111c5f68da0002bbbfc3ecf1ad4c053e99495b17652e2b6bc15ef49"
-MONERO_HASH_LINUX="ac5b335bbb5ee82e64d13898b951b8a3e1a9bd39b0dfbc3b08ea6be0d16d82f1"
-MONERO_TAG="testing6"
+
 # Hashes and version of bitcoin core: https://bitcoin.org/bin/
 #BTC_HASH_MAC="1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7"
 #BTC_HASH_LINUX="366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b"
@@ -38,16 +35,6 @@ dw_source() {
     ${downloader} "$1"
 }
 
-# Verify Monero hash
-check_monero() {
-    #if is_mac; then
-    #    shasum -a 256 -c <<<'4184a141be8ea31af9fd8aaf1b2e38737dafb76838f7d3527b0140942f1bbe87 *monero-linux-x64-v0.17.3.0.tar.bz2' || exit 1
-    #else
-        echo "ac18ce3d1189410a5c175984827d5d601974733303411f6142296d647f6582ce monero-linux-x64-v0.17.3.0.tar.bz2" | sha256sum -c || exit 1
-    #fi
-
-    echo "-> Monero binaries downloaded and verified"
-}
 
 # Verify hashes of bitcoind and bitcoin-cli
 check_bitcoin() {
@@ -62,10 +49,11 @@ check_bitcoin() {
 
 # Download Monero bins
 dw_monero() {
-
+    pkill -9 monero-wallet-r
     extract_monero() {
         echo "-> extracting monerod and monero-wallet-rpc from archive" && \
-        tar -xzf "monero-bins-haveno-${platform}.tar.gz" && \
+        tar -xjf monero-linux-x64-v0.18.0.0.tar.bz2 && \
+        cp monero-x86_64-linux-gnu-v0.18.0.0/monerod monero-x86_64-linux-gnu-v0.18.0.0/monero-wallet-rpc . && \
         chmod +x {monerod,monero-wallet-rpc} || exit 1
     }
 
@@ -75,15 +63,12 @@ dw_monero() {
         platform="linux"
     fi
 
-    if [ -f monero-linux-x64-v0.17.3.0.tar.bz2 ]; then
-        check_monero
+    if [ -f monero-linux-x64-v0.18.0.0.tar.bz2 ]; then
+        extract_monero
     else
-        dw_source https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.bz2 || { echo "! something went wrong while downloading the Monero binaries. Exiting...";  exit 1; } && \
-        check_monero
+        dw_source https://downloads.getmonero.org/cli/monero-linux-x64-v0.18.0.0.tar.bz2 || { echo "! something went wrong while downloading the Monero binaries. Exiting...";  exit 1; } && \
+        extract_monero
     fi
-
-    tar -xzf https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.bz2 && \
-    chmod +x {monerod,monero-wallet-rpc} || exit 1
 }
 
 # Download Bitcoin bins
